@@ -23,6 +23,7 @@ path = "src/bin/vt.rs"
 vault-core = { path = "../core" }
 tokio.workspace = true
 clap.workspace = true
+clap_complete.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true

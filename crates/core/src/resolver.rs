@@ -91,6 +91,35 @@ pub async fn resolve(registry: &Registry, roots: &BTreeMap<String, String>) -> R
                 work.push_back(dep_id);
             }
         }
+
+        // Optional dependencies: best-effort. A resolution/fetch failure must
+        // not break the install (npm semantics).
+        let opt_deps: Vec<(String, String)> = res.packages[&id]
+            .meta
+            .optional_dependencies
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        for (dep_name, dep_range) in opt_deps {
+            match resolve_range(registry, &mut range_cache, &dep_name, &dep_range).await {
+                Ok(dep_version) => {
+                    let dep_id = format!("{dep_name}@{dep_version}");
+                    resolved_deps.insert(dep_name.clone(), dep_version.clone());
+                    if !res.packages.contains_key(&dep_id)
+                        && insert_node(registry, &mut res, &dep_name, &dep_version)
+                            .await
+                            .is_ok()
+                    {
+                        work.push_back(dep_id);
+                    }
+                }
+                Err(_) => res.warnings.push(ResolutionWarning {
+                    name: dep_name.clone(),
+                    message: "optional dependency skipped (could not resolve)".into(),
+                }),
+            }
+        }
+
         res.packages.get_mut(&id).unwrap().deps = resolved_deps;
     }
 

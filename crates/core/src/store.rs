@@ -142,6 +142,51 @@ impl Store {
         Ok(())
     }
 
+    /// Garbage-collect CAS objects no longer referenced by any package index.
+    /// Returns `(objects_removed, bytes_freed)`.
+    pub fn prune(&self) -> Result<(usize, u64)> {
+        // Collect every hash referenced by a stored package index.
+        let mut referenced: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let index_dir = self.root.join(STORE_VERSION).join("index");
+        if let Ok(entries) = std::fs::read_dir(&index_dir) {
+            for entry in entries.flatten() {
+                if let Ok(text) = std::fs::read_to_string(entry.path()) {
+                    if let Ok(index) = serde_json::from_str::<PackageIndex>(&text) {
+                        for f in index.files {
+                            referenced.insert(f.hash);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Walk the CAS and remove any object not in the referenced set.
+        let mut removed = 0usize;
+        let mut freed = 0u64;
+        let files_dir = self.files_dir();
+        if let Ok(shards) = std::fs::read_dir(&files_dir) {
+            for shard in shards.flatten() {
+                let shard_name = shard.file_name();
+                let Some(shard_str) = shard_name.to_str() else {
+                    continue;
+                };
+                if let Ok(objects) = std::fs::read_dir(shard.path()) {
+                    for obj in objects.flatten() {
+                        let hash = format!("{shard_str}{}", obj.file_name().to_string_lossy());
+                        if !referenced.contains(&hash) {
+                            let len = obj.metadata().map(|m| m.len()).unwrap_or(0);
+                            if std::fs::remove_file(obj.path()).is_ok() {
+                                removed += 1;
+                                freed += len;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok((removed, freed))
+    }
+
     /// Hard-link (falling back to copy) every file of a package into `dest_dir`.
     pub fn materialize(&self, index: &PackageIndex, dest_dir: &Path) -> Result<()> {
         for entry in &index.files {

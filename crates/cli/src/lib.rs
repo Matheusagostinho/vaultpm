@@ -1,7 +1,8 @@
 //! Vault CLI. The same logic backs both the `vault` and the short `vt` binary
 //! (see `src/bin/`).
 
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::Shell;
 use console::style;
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -52,8 +53,26 @@ enum Command {
     Remove { packages: Vec<String> },
     /// Audit the dependency graph for CVEs and malicious scripts.
     Audit,
-    /// Run a script defined in package.json (placeholder — phase 4).
+    /// Run a script defined in package.json inside the sandbox.
     Run { script: String },
+    /// Manage the global content-addressable store.
+    Store {
+        #[command(subcommand)]
+        cmd: StoreCmd,
+    },
+    /// Generate shell completion scripts (bash, zsh, fish, powershell).
+    Completions {
+        /// Target shell.
+        shell: Shell,
+    },
+}
+
+#[derive(Subcommand)]
+enum StoreCmd {
+    /// Remove store objects no longer referenced by any package.
+    Prune,
+    /// Print the store location.
+    Path,
 }
 
 /// Synchronous entry point used by both the `vault` and `vt` binaries. Builds
@@ -129,6 +148,34 @@ async fn run_async() -> ExitCode {
                 Ok(code) => ExitCode::from(code.clamp(0, 255) as u8),
                 Err(e) => fail(e),
             }
+        }
+        Command::Store { cmd } => match cmd {
+            StoreCmd::Prune => match vault_core::store::Store::open(None) {
+                Ok(store) => match store.prune() {
+                    Ok((removed, freed)) => {
+                        println!(
+                            "{} pruned {removed} object(s), freed {:.1} MB",
+                            style("✓").green().bold(),
+                            freed as f64 / 1_048_576.0
+                        );
+                        ExitCode::SUCCESS
+                    }
+                    Err(e) => fail(e),
+                },
+                Err(e) => fail(e),
+            },
+            StoreCmd::Path => match vault_core::store::Store::open(None) {
+                Ok(store) => {
+                    println!("{}", store.root().display());
+                    ExitCode::SUCCESS
+                }
+                Err(e) => fail(e),
+            },
+        },
+        Command::Completions { shell } => {
+            let mut cmd = Cli::command();
+            clap_complete::generate(shell, &mut cmd, "vault", &mut std::io::stdout());
+            ExitCode::SUCCESS
         }
     };
 
