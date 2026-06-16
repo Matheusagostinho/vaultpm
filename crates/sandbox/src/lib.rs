@@ -182,6 +182,7 @@ mod tests {
         p
     }
 
+    #[cfg(unix)]
     #[test]
     fn sandbox_denies_unlisted_path() {
         if !is_available() {
@@ -217,6 +218,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&secret_dir);
     }
 
+    #[cfg(unix)]
     #[test]
     fn echo_runs_and_reports_status() {
         // A trivially-allowed command should succeed regardless of enforcement.
