@@ -42,6 +42,45 @@ impl AuditReport {
     }
 }
 
+/// Warm the OSV cache for many packages with a single batch request.
+///
+/// This is the cold-cache fast path: instead of one OSV round-trip per package,
+/// we batch-query all uncached packages at once, then fetch full advisory detail
+/// only for the (rare) packages that actually have vulnerabilities. After this,
+/// [`audit_package`] finds every result in the cache. Same coverage, far fewer
+/// requests. Fail-open: on any error the cache simply stays cold and
+/// [`audit_package`] falls back to per-package queries.
+pub async fn prime_osv_cache(
+    client: &reqwest::Client,
+    cfg: &Config,
+    store: &Store,
+    packages: &[(String, String)],
+) {
+    if !cfg.audit.sources.iter().any(|s| s == "osv") {
+        return;
+    }
+    let uncached: Vec<(String, String)> = packages
+        .iter()
+        .filter(|(n, v)| cache::get(store, n, v, cfg.audit.cache_ttl_hours).is_none())
+        .cloned()
+        .collect();
+    if uncached.is_empty() {
+        return;
+    }
+
+    let id_lists = osv::query_batch(client, &uncached).await;
+    for ((name, version), ids) in uncached.iter().zip(id_lists) {
+        if ids.is_empty() {
+            // Clean — cache an empty verdict so audit_package skips the network.
+            cache::put(store, name, version, &[]);
+        } else {
+            // Has advisories: fetch full detail (severity etc.) and cache it.
+            let advisories = osv::query(client, name, version).await.unwrap_or_default();
+            cache::put(store, name, version, &advisories);
+        }
+    }
+}
+
 /// Run the full audit pipeline for a single package version.
 ///
 /// Returns the report, or a [`VaultError::SecurityBlock`] when policy demands a

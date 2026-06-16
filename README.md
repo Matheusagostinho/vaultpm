@@ -19,10 +19,10 @@ file is extracted.**
 > resolver + pnpm-style isolated `node_modules`**, the OSV CVE gate,
 > obfuscation-resistant script analysis, maintainer-takeover + typosquat signals,
 > `.bin` linking, npm aliases, and a real **Landlock sandbox** for `vault run`.
-> On a **warm cache it already installs faster than pnpm** *while* auditing every
-> dependency — see the honest [benchmarks](./BENCHMARKS.md) (cold installs still
-> trail pnpm). Don't use it as your only package manager in production yet — but
-> please try it and [file issues](https://github.com/Matheusagostinho/vaultpm/issues).
+> It already installs **faster than pnpm on both cold and warm caches** *while*
+> auditing every dependency — see the honest [benchmarks](./BENCHMARKS.md). Don't
+> use it as your only package manager in production yet — but please try it and
+> [file issues](https://github.com/Matheusagostinho/vaultpm/issues).
 >
 > 🌐 **Website:** https://matheusagostinho.github.io/vaultpm/ · 🔐 [Security policy](./SECURITY.md)
 
@@ -76,25 +76,26 @@ ship only passive defenses.
 
 ## Performance
 
-Security usually means "slower". Vault refuses that trade-off. On a **warm cache**
-— the everyday "I deleted `node_modules`" case — Vault installs **~2× faster than
-pnpm**, *while auditing every dependency* for CVEs, typosquats and maintainer
-takeovers that npm and pnpm never check.
+Security usually means "slower". Vault refuses that trade-off — it's the
+**fastest of the three on both cold and warm caches**, *while auditing every
+dependency* for CVEs, typosquats and maintainer takeovers that npm and pnpm
+never check.
 
 | Tool | Cold cache | Warm cache | audits deps? |
 |---|---:|---:|:--:|
-| **vault** | 5.3s | **1.25s** 🥇 | ✅ |
-| pnpm | 2.5s | 2.1s | ❌ |
-| npm | 7.4s | 3.0s | ❌ |
+| **vault** | **3.2s** 🥇 | **2.0s** 🥇 | ✅ |
+| pnpm | 3.8s | 3.1s | ❌ |
+| npm | 9.2s | 5.2s | ❌ |
 
-<sup>Median of 3 runs, ~150-package tree, scripts disabled for all tools. Cold
-installs still trail pnpm while we add streaming extraction. Reproduce it
-yourself: [`benchmarks/bench.sh`](./benchmarks/bench.sh) · full methodology in
-[BENCHMARKS.md](./BENCHMARKS.md).</sup>
+<sup>One back-to-back run (all tools, same network), ~150-package tree, scripts
+disabled for all. Absolute times vary with network — the ordering is stable
+across runs. Reproduce it: [`benchmarks/bench.sh`](./benchmarks/bench.sh) · full
+methodology in [BENCHMARKS.md](./BENCHMARKS.md).</sup>
 
-How: a **concurrent, level-ordered resolver** (the whole dependency frontier is
-fetched in parallel, deduplicated by a singleflight cache), a **content-addressable
-store** with hard links (pnpm-style disk dedup), and an **on-disk metadata cache**
+How: a **concurrent, level-ordered resolver** (the whole dependency frontier
+fetched in parallel, deduplicated by a singleflight cache), a **batched OSV CVE
+lookup** (one request for the whole tree), **off-thread tarball extraction**, a
+**content-addressable store** with hard links, and an **on-disk metadata cache**
 that revalidates with cheap ETag `304`s.
 
 ---

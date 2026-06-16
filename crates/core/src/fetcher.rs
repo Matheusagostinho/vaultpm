@@ -20,19 +20,29 @@ pub async fn ensure_in_store(
         return Ok(false);
     }
 
-    let dist = &pkg.meta.dist;
-    let bytes = registry.download_tarball(&dist.tarball).await?;
+    let bytes = registry.download_tarball(&pkg.meta.dist.tarball).await?;
 
-    // Fail-closed integrity check before we touch the bytes any further.
-    integrity::verify(
-        &pkg.name,
-        &pkg.version,
-        &bytes,
-        dist.integrity.as_deref(),
-        dist.shasum.as_deref(),
-    )?;
+    // Integrity verification + gunzip/untar are CPU-bound; run them on the
+    // blocking pool so they don't stall the async runtime and many packages
+    // extract truly in parallel. Integrity stays fail-closed.
+    let store_for_extract = store.clone();
+    let pkg = pkg.clone();
+    let index = tokio::task::spawn_blocking(move || -> Result<PackageIndex> {
+        integrity::verify(
+            &pkg.name,
+            &pkg.version,
+            &bytes,
+            pkg.meta.dist.integrity.as_deref(),
+            pkg.meta.dist.shasum.as_deref(),
+        )?;
+        extract_to_store(&store_for_extract, &pkg, &bytes)
+    })
+    .await
+    .map_err(|e| VaultError::Resolution {
+        name: "extract".into(),
+        reason: format!("extraction task failed: {e}"),
+    })??;
 
-    let index = extract_to_store(store, pkg, &bytes)?;
     store.write_index(&index)?;
     Ok(true)
 }

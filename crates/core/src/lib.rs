@@ -29,8 +29,8 @@ use registry::Registry;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-/// Maximum number of packages processed concurrently.
-const CONCURRENCY: usize = 16;
+/// Maximum number of packages processed concurrently (network-bound).
+const CONCURRENCY: usize = 24;
 
 /// Options controlling an install run.
 #[derive(Debug, Clone)]
@@ -96,6 +96,13 @@ pub async fn install(opts: &InstallOptions) -> Result<InstallSummary> {
         style("🛡").yellow(),
         resolution.packages.len()
     );
+    // Warm the CVE cache with one batched OSV request (cold-cache fast path).
+    let pkg_list: Vec<(String, String)> = resolution
+        .packages
+        .values()
+        .map(|p| (p.name.clone(), p.version.clone()))
+        .collect();
+    audit::prime_osv_cache(&http, &cfg, &store, &pkg_list).await;
     let reports = audit_all(&http, &cfg, &store, &resolution).await;
 
     let mut audit_reports: BTreeMap<String, AuditReport> = BTreeMap::new();
@@ -225,6 +232,12 @@ pub async fn audit_project(project_dir: &Path) -> Result<InstallSummary> {
         ..Default::default()
     };
 
+    let pkg_list: Vec<(String, String)> = resolution
+        .packages
+        .values()
+        .map(|p| (p.name.clone(), p.version.clone()))
+        .collect();
+    audit::prime_osv_cache(&http, &cfg, &store, &pkg_list).await;
     for (id, result) in audit_all(&http, &cfg, &store, &resolution).await {
         match result {
             Ok(report) => {
