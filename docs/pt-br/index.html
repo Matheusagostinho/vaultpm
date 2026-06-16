@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Vault — the secure package manager</title>
-<meta name="description" content="A secure, pnpm-style Node.js package manager written in Rust that blocks supply-chain attacks before install." />
+<title>Vault — o gerenciador de pacotes seguro</title>
+<meta name="description" content="Um gerenciador de pacotes Node.js seguro, no estilo pnpm, escrito em Rust, que bloqueia ataques de cadeia de suprimentos antes da instalação." />
 <style>
   :root{
     --bg:#0b0e14; --panel:#121722; --panel2:#0f141d; --line:#1f2733;
@@ -60,21 +60,21 @@
   <header>
     <div class="brand"><span class="lock">🔒</span> Vault</div>
     <nav>
-      <a href="#features">Features</a>
-      <a href="#compare">Compare</a>
+      <a href="#features">Recursos</a>
+      <a href="#compare">Comparativo</a>
       <a href="https://github.com/Matheusagostinho/vaultpm">GitHub</a>
-      <a href="pt-br/">🇧🇷 PT-BR</a>
+      <a href="../">🇬🇧 EN</a>
     </nav>
   </header>
 
   <div class="hero">
-    <span class="badge">alpha · written in Rust · MIT</span>
-    <h1>Audit first.<br><span class="grad">Install second.</span></h1>
-    <p class="sub">A secure, pnpm-style package manager for Node.js that actively blocks
-      supply-chain attacks <em>before</em> a single file is extracted.</p>
+    <span class="badge">alpha · escrito em Rust · MIT</span>
+    <h1>Auditar primeiro.<br><span class="grad">Instalar depois.</span></h1>
+    <p class="sub">Um gerenciador de pacotes Node.js seguro, no estilo pnpm, que bloqueia
+      ativamente ataques de cadeia de suprimentos <em>antes</em> de extrair qualquer arquivo.</p>
     <div class="cta">
-      <a class="btn primary" href="#install">Get started</a>
-      <a class="btn ghost" href="https://github.com/Matheusagostinho/vaultpm">Star on GitHub</a>
+      <a class="btn primary" href="#install">Começar agora</a>
+      <a class="btn ghost" href="https://github.com/Matheusagostinho/vaultpm">Dar uma estrela no GitHub</a>
     </div>
 
     <div class="install" id="install">
@@ -85,66 +85,66 @@
       </div>
       <pre id="cmd"><span class="c">$</span> npm install -g vaultpm</pre>
     </div>
-    <p class="note">Installs the <code>vault</code> and <code>vt</code> commands. Vault's own
-      install runs <strong>zero</strong> postinstall scripts.</p>
+    <p class="note">Instala os comandos <code>vault</code> e <code>vt</code>. A própria instalação do
+      Vault roda <strong>zero</strong> scripts de postinstall.</p>
   </div>
 </div>
 
 <section id="features">
   <div class="wrap">
-    <h2>Security built into the installer</h2>
-    <p class="lead">Not a scanner you run afterwards. The package manager itself is the guard.</p>
+    <h2>Segurança embutida no instalador</h2>
+    <p class="lead">Não é um scanner que você roda depois. O próprio gerenciador de pacotes é o guarda.</p>
     <div class="grid">
-      <div class="card"><span class="ic">🛡️</span><h3>Pre-install CVE gate</h3><p>Every package is checked against OSV.dev before download. Critical CVEs are blocked, not just reported.</p></div>
-      <div class="card"><span class="ic">🔬</span><h3>Script analysis</h3><p>Obfuscation-resistant scan of <code>preinstall</code>/<code>postinstall</code> for credential theft, exfiltration and eval-based payloads.</p></div>
-      <div class="card"><span class="ic">🧬</span><h3>Maintainer takeover</h3><p>Flags freshly-published versions and maintainer-set changes between installs — the classic hijack pattern.</p></div>
-      <div class="card"><span class="ic">🎯</span><h3>Typosquat detection</h3><p>Catches look-alike names (<code>expresss</code>, <code>crossenv</code>) before you install the wrong thing.</p></div>
-      <div class="card"><span class="ic">📦</span><h3>Landlock sandbox</h3><p>Lifecycle scripts run under a kernel sandbox with no access to <code>~/.ssh</code>, <code>~/.aws</code> or the network.</p></div>
-      <div class="card"><span class="ic">💽</span><h3>Content-addressable store</h3><p>pnpm-style global store + hard links. Ten projects on <code>lodash</code> = one copy on disk.</p></div>
+      <div class="card"><span class="ic">🛡️</span><h3>Bloqueio de CVE pré-instalação</h3><p>Cada pacote é verificado no OSV.dev antes do download. CVEs críticos são bloqueados, não apenas reportados.</p></div>
+      <div class="card"><span class="ic">🔬</span><h3>Análise de scripts</h3><p>Varredura resistente a ofuscação de <code>preinstall</code>/<code>postinstall</code> contra roubo de credenciais, exfiltração e payloads via eval.</p></div>
+      <div class="card"><span class="ic">🧬</span><h3>Sequestro de mantenedor</h3><p>Sinaliza versões publicadas recentemente e mudanças no conjunto de mantenedores entre instalações — o padrão clássico de takeover.</p></div>
+      <div class="card"><span class="ic">🎯</span><h3>Detecção de typosquat</h3><p>Pega nomes parecidos (<code>expresss</code>, <code>crossenv</code>) antes de você instalar o pacote errado.</p></div>
+      <div class="card"><span class="ic">📦</span><h3>Sandbox Landlock</h3><p>Scripts de ciclo de vida rodam sob um sandbox do kernel, sem acesso a <code>~/.ssh</code>, <code>~/.aws</code> ou à rede.</p></div>
+      <div class="card"><span class="ic">💽</span><h3>Store endereçado por conteúdo</h3><p>Store global + hard links, igual ao pnpm. Dez projetos usando <code>lodash</code> = uma cópia no disco.</p></div>
     </div>
   </div>
 </section>
 
 <section id="compare">
   <div class="wrap">
-    <h2>How it compares</h2>
-    <p class="lead">Socket-style analysis, built into a native package manager — open source.</p>
+    <h2>Como ele se compara</h2>
+    <p class="lead">Análise no estilo Socket, embutida num gerenciador de pacotes nativo — open source.</p>
     <table>
       <tr><th>&nbsp;</th><th>Vault</th><th>Socket / Aikido</th><th>snpm / rnpm</th><th>pnpm 10 / bun</th></tr>
-      <tr><td>Is a package manager</td><td class="y">✓</td><td class="n">✗ wraps npm</td><td class="y">✓</td><td class="y">✓</td></tr>
-      <tr><td>Pre-install CVE scan</td><td class="y">✓</td><td class="y">✓</td><td>partial</td><td class="n">✗</td></tr>
-      <tr><td>Static script analysis</td><td class="y">✓</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td></tr>
-      <tr><td>Kernel sandbox</td><td class="y">✓ Landlock</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
-      <tr><td>Open source &amp; self-contained</td><td class="y">✓</td><td class="n">✗ SaaS</td><td class="y">✓</td><td class="y">✓</td></tr>
+      <tr><td>É um gerenciador de pacotes</td><td class="y">✓</td><td class="n">✗ envolve o npm</td><td class="y">✓</td><td class="y">✓</td></tr>
+      <tr><td>Scan de CVE pré-instalação</td><td class="y">✓</td><td class="y">✓</td><td>parcial</td><td class="n">✗</td></tr>
+      <tr><td>Análise estática de scripts</td><td class="y">✓</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td></tr>
+      <tr><td>Sandbox de kernel</td><td class="y">✓ Landlock</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td></tr>
+      <tr><td>Open source e autocontido</td><td class="y">✓</td><td class="n">✗ SaaS</td><td class="y">✓</td><td class="y">✓</td></tr>
     </table>
-    <p class="note">Vault is the first open-source native package manager where the security
-      analysis is built into the installer itself. See <a href="https://github.com/Matheusagostinho/vaultpm/blob/main/BENCHMARKS.md">honest benchmarks</a>.</p>
+    <p class="note">O Vault é o primeiro gerenciador de pacotes nativo open-source onde a análise de
+      segurança está embutida no próprio instalador. Veja os <a href="https://github.com/Matheusagostinho/vaultpm/blob/main/BENCHMARKS.md">benchmarks honestos</a>.</p>
   </div>
 </section>
 
 <section>
   <div class="wrap">
-    <h2>The pipeline</h2>
-    <p class="lead">A malicious package is rejected on metadata alone — before any file touches disk.</p>
+    <h2>O pipeline</h2>
+    <p class="lead">Um pacote malicioso é rejeitado só pelos metadados — antes de qualquer arquivo tocar o disco.</p>
     <div class="pipe">package.json
    │
    ▼
- resolve graph ──▶ <b>AUDIT</b> (metadata, before download)
-                     ├── OSV.dev CVE lookup
-                     ├── static scan of install scripts
-                     ├── maintainer-takeover + typosquat
-                     └── policy gate ── <b>BLOCK</b> ──▶ abort (nothing extracted)
-                     │
-                     ▼ (clean)
-              verify SHA-512 ──▶ content-addressable store ──▶ node_modules ──▶ vault.lock</div>
+ resolver o grafo ──▶ <b>AUDITORIA</b> (metadados, antes do download)
+                        ├── busca de CVE no OSV.dev
+                        ├── scan estático dos scripts de instalação
+                        ├── sequestro de mantenedor + typosquat
+                        └── política ── <b>BLOQUEIA</b> ──▶ aborta (nada extraído)
+                        │
+                        ▼ (limpo)
+              verifica SHA-512 ──▶ store por conteúdo ──▶ node_modules ──▶ vault.lock</div>
   </div>
 </section>
 
 <footer>
   <div class="wrap">
-    🔒 <strong>Vault</strong> — MIT licensed · built with Rust ·
+    🔒 <strong>Vault</strong> — licença MIT · feito com Rust ·
     <a href="https://github.com/Matheusagostinho/vaultpm">github.com/Matheusagostinho/vaultpm</a><br>
-    <span class="note">Alpha software. Try it, break it, <a href="https://github.com/Matheusagostinho/vaultpm/issues">file issues</a>.</span>
+    <span class="note">Software alpha. Use, quebre, <a href="https://github.com/Matheusagostinho/vaultpm/issues">abra issues</a>.</span>
   </div>
 </footer>
 
