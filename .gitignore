@@ -1,0 +1,25 @@
+# Rust
+/target
+**/*.rs.bk
+Cargo.lock.orig
+
+# Node / test artifacts
+node_modules/
+*.tgz
+
+# npm distribution: built binaries are dropped in by CI, never committed
+npm/**/bin/vault
+npm/**/bin/vt
+npm/platforms/*/vault
+npm/platforms/*/vt
+
+# Local Vault store (should never be in a repo)
+.vault/
+
+# Per-folder context files for AI agents (kept local, not published)
+CLAUDE.md
+**/CLAUDE.md
+
+# OS / editor noise
+.DS_Store
+*.swp

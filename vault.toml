@@ -1,0 +1,31 @@
+# Vault project configuration. Every field is optional — omitting this file
+# entirely uses the secure defaults shown below.
+
+[security]
+# Block lifecycle scripts (preinstall/install/postinstall) that reach the network.
+block_postinstall_network = true
+# Warn when a package's maintainer changed within this many days (phase 3).
+warn_new_maintainer_days = 30
+# Warn for packages below this weekly-download threshold (phase 3).
+min_weekly_downloads = 100
+# Abort the install if a critical/high CVE is found. Set false to only warn.
+abort_on_critical_cve = true
+# Require Sigstore provenance attestations (strict mode, phase 3).
+require_provenance = false
+
+[audit]
+# CVE sources to query. "osv" = OSV.dev (free, no auth). "npm" planned (phase 2).
+sources = ["osv"]
+# How long a cached audit result stays valid.
+cache_ttl_hours = 24
+
+[sandbox]
+# Sandbox lifecycle scripts via Linux Landlock (phase 3).
+enabled = true
+allow_fs_read = ["./node_modules"]
+allow_fs_write = ["./node_modules"]
+allow_net = []   # empty = no network access for scripts
+
+[store]
+# Global content-addressable store location. Defaults to ~/.vault/store.
+# path = "~/.vault/store"

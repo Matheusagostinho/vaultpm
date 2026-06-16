@@ -1,0 +1,42 @@
+{
+  "name": "vaultpm",
+  "version": "0.1.0",
+  "description": "A secure, pnpm-style Node.js package manager written in Rust that blocks supply-chain attacks before install. Installs the `vault` and `vt` commands.",
+  "keywords": [
+    "package-manager",
+    "npm",
+    "pnpm",
+    "security",
+    "supply-chain",
+    "audit",
+    "cve",
+    "rust",
+    "sandbox"
+  ],
+  "homepage": "https://github.com/matheus/vaultpm",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/matheus/vaultpm.git"
+  },
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "vault": "bin/vault.mjs",
+    "vt": "bin/vt.mjs"
+  },
+  "files": [
+    "bin/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "//": "No postinstall script by design — the platform binary ships via optionalDependencies. A security tool should not run install scripts to install itself.",
+  "optionalDependencies": {
+    "@vaultpm/linux-x64": "0.1.0",
+    "@vaultpm/linux-arm64": "0.1.0",
+    "@vaultpm/darwin-x64": "0.1.0",
+    "@vaultpm/darwin-arm64": "0.1.0",
+    "@vaultpm/win32-x64": "0.1.0"
+  }
+}

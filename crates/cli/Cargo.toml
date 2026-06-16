@@ -1,0 +1,29 @@
+[package]
+name = "vault-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Command-line interface for the Vault secure package manager (binaries: vault, vt)."
+
+[lib]
+name = "vault_cli"
+path = "src/lib.rs"
+
+[[bin]]
+name = "vault"
+path = "src/bin/vault.rs"
+
+[[bin]]
+name = "vt"
+path = "src/bin/vt.rs"
+
+[dependencies]
+vault-core = { path = "../core" }
+tokio.workspace = true
+clap.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+console.workspace = true
