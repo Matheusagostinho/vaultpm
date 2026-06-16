@@ -26,7 +26,9 @@ pub struct ResolvedPackage {
     pub name: String,
     pub version: String,
     pub meta: VersionMeta,
-    /// `depName -> resolved version` for this package's runtime dependencies.
+    /// `aliasName -> resolved package id` (`name@version`). The alias is the
+    /// name this package imports the dependency under, which can differ from
+    /// the real package name for npm aliases (`"x": "npm:y@^1"`).
     pub deps: BTreeMap<String, String>,
 }
 
@@ -49,7 +51,7 @@ pub struct ResolutionWarning {
 pub struct Resolution {
     /// Every resolved package keyed by `name@version`.
     pub packages: BTreeMap<String, ResolvedPackage>,
-    /// Top-level (direct) dependencies: `name -> resolved version`.
+    /// Top-level (direct) dependencies: `aliasName -> resolved package id`.
     pub roots: BTreeMap<String, String>,
     pub warnings: Vec<ResolutionWarning>,
 }
@@ -61,12 +63,13 @@ pub async fn resolve(registry: &Registry, roots: &BTreeMap<String, String>) -> R
     let mut work: VecDeque<String> = VecDeque::new();
 
     // Resolve direct dependencies first.
-    for (name, range) in roots {
-        let version = resolve_range(registry, &mut range_cache, name, range).await?;
-        res.roots.insert(name.clone(), version.clone());
-        let id = format!("{name}@{version}");
+    for (alias, spec) in roots {
+        let (real_name, real_range) = parse_dep_spec(alias, spec);
+        let version = resolve_range(registry, &mut range_cache, &real_name, &real_range).await?;
+        let id = format!("{real_name}@{version}");
+        res.roots.insert(alias.clone(), id.clone());
         if !res.packages.contains_key(&id) {
-            insert_node(registry, &mut res, name, &version).await?;
+            insert_node(registry, &mut res, &real_name, &version).await?;
             work.push_back(id);
         }
     }
@@ -81,13 +84,14 @@ pub async fn resolve(registry: &Registry, roots: &BTreeMap<String, String>) -> R
             .collect();
 
         let mut resolved_deps = BTreeMap::new();
-        for (dep_name, dep_range) in deps {
+        for (alias, spec) in deps {
+            let (real_name, real_range) = parse_dep_spec(&alias, &spec);
             let dep_version =
-                resolve_range(registry, &mut range_cache, &dep_name, &dep_range).await?;
-            let dep_id = format!("{dep_name}@{dep_version}");
-            resolved_deps.insert(dep_name.clone(), dep_version.clone());
+                resolve_range(registry, &mut range_cache, &real_name, &real_range).await?;
+            let dep_id = format!("{real_name}@{dep_version}");
+            resolved_deps.insert(alias.clone(), dep_id.clone());
             if !res.packages.contains_key(&dep_id) {
-                insert_node(registry, &mut res, &dep_name, &dep_version).await?;
+                insert_node(registry, &mut res, &real_name, &dep_version).await?;
                 work.push_back(dep_id);
             }
         }
@@ -100,13 +104,14 @@ pub async fn resolve(registry: &Registry, roots: &BTreeMap<String, String>) -> R
             .iter()
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect();
-        for (dep_name, dep_range) in opt_deps {
-            match resolve_range(registry, &mut range_cache, &dep_name, &dep_range).await {
+        for (alias, spec) in opt_deps {
+            let (real_name, real_range) = parse_dep_spec(&alias, &spec);
+            match resolve_range(registry, &mut range_cache, &real_name, &real_range).await {
                 Ok(dep_version) => {
-                    let dep_id = format!("{dep_name}@{dep_version}");
-                    resolved_deps.insert(dep_name.clone(), dep_version.clone());
+                    let dep_id = format!("{real_name}@{dep_version}");
+                    resolved_deps.insert(alias.clone(), dep_id.clone());
                     if !res.packages.contains_key(&dep_id)
-                        && insert_node(registry, &mut res, &dep_name, &dep_version)
+                        && insert_node(registry, &mut res, &real_name, &dep_version)
                             .await
                             .is_ok()
                     {
@@ -114,7 +119,7 @@ pub async fn resolve(registry: &Registry, roots: &BTreeMap<String, String>) -> R
                     }
                 }
                 Err(_) => res.warnings.push(ResolutionWarning {
-                    name: dep_name.clone(),
+                    name: alias.clone(),
                     message: "optional dependency skipped (could not resolve)".into(),
                 }),
             }
@@ -124,6 +129,27 @@ pub async fn resolve(registry: &Registry, roots: &BTreeMap<String, String>) -> R
     }
 
     Ok(res)
+}
+
+/// Resolve a dependency spec into `(real_package_name, version_range)`,
+/// unwrapping npm aliases of the form `npm:<name>@<range>` (e.g.
+/// `"string-width-cjs": "npm:string-width@^4.2.0"`).
+fn parse_dep_spec(alias: &str, spec: &str) -> (String, String) {
+    if let Some(rest) = spec.strip_prefix("npm:") {
+        // `rest` is `name@range`; the name may be scoped (`@scope/name`).
+        if let Some(stripped) = rest.strip_prefix('@') {
+            if let Some(at) = stripped.find('@') {
+                let (name, range) = stripped.split_at(at);
+                return (format!("@{name}"), range[1..].to_string());
+            }
+            return (rest.to_string(), "*".to_string());
+        }
+        if let Some((name, range)) = rest.split_once('@') {
+            return (name.to_string(), range.to_string());
+        }
+        return (rest.to_string(), "*".to_string());
+    }
+    (alias.to_string(), spec.to_string())
 }
 
 /// Resolve `(name, range)` to a concrete version, caching identical requests.
@@ -222,6 +248,23 @@ mod tests {
             (Ok(r), Ok(v)) => r.satisfies(&v),
             _ => false,
         }
+    }
+
+    #[test]
+    fn parses_npm_aliases() {
+        assert_eq!(
+            parse_dep_spec("wrap-ansi-cjs", "npm:wrap-ansi@^7.0.0"),
+            ("wrap-ansi".to_string(), "^7.0.0".to_string())
+        );
+        assert_eq!(
+            parse_dep_spec("x", "npm:@scope/pkg@^1.2.3"),
+            ("@scope/pkg".to_string(), "^1.2.3".to_string())
+        );
+        // Non-alias specs pass through unchanged.
+        assert_eq!(
+            parse_dep_spec("lodash", "^4.17.21"),
+            ("lodash".to_string(), "^4.17.21".to_string())
+        );
     }
 
     #[test]

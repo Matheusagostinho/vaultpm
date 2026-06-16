@@ -45,26 +45,31 @@ pub fn link_all(store: &Store, resolution: &Resolution, project_dir: &Path) -> R
     }
 
     // 2. Wire each package's dependency symlinks (done after all dirs exist).
+    //    `alias` is the import name; `real_id` is the actual resolved package.
     for pkg in resolution.packages.values() {
         let deps_base = virtual_store.join(sanitize(&pkg.id())).join("node_modules");
-        for (dep_name, dep_version) in &pkg.deps {
-            let dep_id = format!("{dep_name}@{dep_version}");
+        for (alias, real_id) in &pkg.deps {
+            let Some(real) = resolution.packages.get(real_id) else {
+                continue;
+            };
             let target = virtual_store
-                .join(sanitize(&dep_id))
+                .join(sanitize(real_id))
                 .join("node_modules")
-                .join(dep_name);
-            symlink(&target, &deps_base.join(dep_name))?;
+                .join(&real.name);
+            symlink(&target, &deps_base.join(alias))?;
         }
     }
 
     // 3. Top-level symlinks for the direct dependencies.
-    for (name, version) in &resolution.roots {
-        let id = format!("{name}@{version}");
+    for (alias, real_id) in &resolution.roots {
+        let Some(real) = resolution.packages.get(real_id) else {
+            continue;
+        };
         let target = virtual_store
-            .join(sanitize(&id))
+            .join(sanitize(real_id))
             .join("node_modules")
-            .join(name);
-        symlink(&target, &node_modules.join(name))?;
+            .join(&real.name);
+        symlink(&target, &node_modules.join(alias))?;
     }
 
     // 4. Link executables (`bin` fields) into the relevant `.bin` directories.
@@ -86,23 +91,29 @@ fn link_bins(virtual_store: &Path, node_modules: &Path, resolution: &Resolution)
             .join(sanitize(&pkg.id()))
             .join("node_modules")
             .join(".bin");
-        for (dep_name, dep_version) in &pkg.deps {
+        for real_id in pkg.deps.values() {
+            let Some(real) = resolution.packages.get(real_id) else {
+                continue;
+            };
             let dep_pkg_dir = virtual_store
-                .join(sanitize(&format!("{dep_name}@{dep_version}")))
+                .join(sanitize(real_id))
                 .join("node_modules")
-                .join(dep_name);
-            link_package_bins(&dep_pkg_dir, dep_name, &bin_dir)?;
+                .join(&real.name);
+            link_package_bins(&dep_pkg_dir, &real.name, &bin_dir)?;
         }
     }
 
     // Top level: the project's direct dependencies' bins.
     let top_bin = node_modules.join(".bin");
-    for (name, version) in &resolution.roots {
+    for real_id in resolution.roots.values() {
+        let Some(real) = resolution.packages.get(real_id) else {
+            continue;
+        };
         let pkg_dir = virtual_store
-            .join(sanitize(&format!("{name}@{version}")))
+            .join(sanitize(real_id))
             .join("node_modules")
-            .join(name);
-        link_package_bins(&pkg_dir, name, &top_bin)?;
+            .join(&real.name);
+        link_package_bins(&pkg_dir, &real.name, &top_bin)?;
     }
     Ok(())
 }

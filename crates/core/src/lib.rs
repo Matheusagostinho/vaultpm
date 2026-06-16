@@ -289,13 +289,8 @@ async fn reputation_all(
     } else {
         resolution
             .roots
-            .iter()
-            .filter_map(|(name, version)| {
-                resolution
-                    .packages
-                    .get(&format!("{name}@{version}"))
-                    .cloned()
-            })
+            .values()
+            .filter_map(|real_id| resolution.packages.get(real_id).cloned())
             .collect()
     };
 

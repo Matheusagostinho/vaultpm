@@ -15,12 +15,15 @@ file is extracted.**
 </div>
 
 > [!WARNING]
-> **Status: alpha (v0.1).** Working today: the install pipeline, the OSV CVE
-> gate, obfuscation-resistant script analysis, maintainer-takeover + typosquat
-> signals, and a real **Landlock sandbox** for `vault run`. Still on the
-> [roadmap](./ROADMAP.md): the PubGrub resolver and pnpm-style isolated layout.
-> Don't use it as your only package manager in production yet — but please try
-> it and file issues.
+> **Status: alpha (v0.1).** Working today: install pipeline with a **per-version
+> resolver + pnpm-style isolated `node_modules`**, the OSV CVE gate,
+> obfuscation-resistant script analysis, maintainer-takeover + typosquat signals,
+> `.bin` linking, npm aliases, and a real **Landlock sandbox** for `vault run`.
+> It is **not yet as fast** as pnpm — see the honest [benchmarks](./BENCHMARKS.md).
+> Don't use it as your only package manager in production yet — but please try it
+> and [file issues](https://github.com/Matheusagostinho/vaultpm/issues).
+>
+> 🌐 **Website:** https://matheusagostinho.github.io/vaultpm/ · 🔐 [Security policy](./SECURITY.md)
 
 ---
 
@@ -120,6 +123,15 @@ vault audit              # scan the dependency graph, install nothing
 vt i
 vt add zod
 vt audit
+
+# run a package.json script inside the Landlock sandbox:
+vault run build
+vault install --strict     # block on ANY advisory, not just critical
+
+# housekeeping:
+vault store prune          # GC unreferenced files from the global store
+vault store path           # print the store location
+vault completions zsh      # shell completions (bash/zsh/fish/powershell)
 ```
 
 Every install produces a `vault.lock` recording the resolved version,
