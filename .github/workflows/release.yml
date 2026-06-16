@@ -110,11 +110,24 @@ jobs:
       - name: Publish platform packages
         run: |
           for dir in npm/platforms/*/; do
-            (cd "$dir" && npm publish --access public)
+            name=$(node -p "require('./${dir}package.json').name")
+            ver=$(node -p "require('./${dir}package.json').version")
+            if npm view "$name@$ver" version >/dev/null 2>&1; then
+              echo "✓ $name@$ver already published — skipping"
+            else
+              (cd "$dir" && npm publish --access public)
+            fi
           done
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Publish main package
-        run: cd npm && npm publish --access public
+        run: |
+          name=$(node -p "require('./npm/package.json').name")
+          ver=$(node -p "require('./npm/package.json').version")
+          if npm view "$name@$ver" version >/dev/null 2>&1; then
+            echo "✓ $name@$ver already published — skipping"
+          else
+            (cd npm && npm publish --access public)
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
