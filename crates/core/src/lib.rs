@@ -122,6 +122,11 @@ pub async fn install(opts: &InstallOptions) -> Result<InstallSummary> {
         }
     }
 
+    // 2b. Reputation signals on direct dependencies (recency + popularity).
+    for msg in reputation_all(&registry, &http, &cfg, &resolution, &roots).await {
+        summary.warnings.push(msg);
+    }
+
     // 3. Enforce blocks unless --force.
     if !summary.blocked.is_empty() && !opts.force {
         for b in &summary.blocked {
@@ -224,6 +229,9 @@ pub async fn audit_project(project_dir: &Path) -> Result<InstallSummary> {
             Err(e) => return Err(e),
         }
     }
+    for msg in reputation_all(&registry, &http, &cfg, &resolution, &roots).await {
+        summary.warnings.push(msg);
+    }
     Ok(summary)
 }
 
@@ -246,6 +254,46 @@ async fn audit_all(
         .buffer_unordered(CONCURRENCY)
         .collect()
         .await
+}
+
+/// Run reputation checks (recency + popularity) for the **direct** dependencies
+/// only, to bound API calls and noise. Returns warning strings.
+async fn reputation_all(
+    registry: &Registry,
+    http: &reqwest::Client,
+    cfg: &Config,
+    resolution: &resolver::Resolution,
+    roots: &BTreeMap<String, String>,
+) -> Vec<String> {
+    use futures::stream::StreamExt;
+    let now = audit::reputation::now_epoch_days();
+    let direct: Vec<resolver::ResolvedPackage> = roots
+        .keys()
+        .filter_map(|name| resolution.packages.get(name).cloned())
+        .collect();
+
+    futures::stream::iter(direct)
+        .map(|pkg| {
+            let registry = registry.clone();
+            let http = http.clone();
+            let cfg = cfg.clone();
+            async move {
+                let Ok(packument) = registry.packument(&pkg.name).await else {
+                    return Vec::new();
+                };
+                let downloads = audit::reputation::weekly_downloads(&http, &pkg.name).await;
+                audit::reputation::assess(&cfg, &packument, &pkg.version, downloads, now)
+                    .into_iter()
+                    .map(|w| w.message)
+                    .collect::<Vec<_>>()
+            }
+        })
+        .buffer_unordered(CONCURRENCY)
+        .collect::<Vec<Vec<String>>>()
+        .await
+        .into_iter()
+        .flatten()
+        .collect()
 }
 
 async fn fetch_all(

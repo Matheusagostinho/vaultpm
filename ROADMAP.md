@@ -37,13 +37,17 @@ The full plan from today's alpha to a **genuinely functional and distributable**
 - [x] Static scan of `preinstall`/`install`/`postinstall` (pattern-based)
 - [x] Audit runs on **metadata, before any download/extract**
 - [x] Colored terminal security report
+- [x] **Maintainer-takeover signal**: recency check (resolved version published
+      within `warn_new_maintainer_days`) + maintainer count, on direct deps
+- [x] **Low-popularity warning** via npm downloads API (`min_weekly_downloads`)
+- [x] Offline integration tests covering the fixture scenarios
+      (`clean`, `postinstall-network`, `postinstall-ssh`, `postinstall-env`)
 - [ ] `swc`-based **AST** analysis of scripts (resists obfuscation that beats regex)
 - [ ] npm Advisory API as a second CVE source
-- [ ] **Maintainer-takeover detection** (registry `time` + maintainer diff, configurable window)
-- [ ] Low-popularity warning via npm downloads API (`min_weekly_downloads`)
+- [ ] Full maintainer-diff (compare against last-seen maintainer set, not just recency)
+- [ ] Reputation checks on transitive deps (currently direct-only to bound API calls)
 - [ ] Persistent audit cache (`audit.json` per content hash, TTL from config)
 - [ ] Typosquatting heuristic (edit-distance vs popular package names)
-- [ ] Integration-test fixtures: `clean`, `postinstall-network`, `postinstall-env`, `known-cve`
 
 ## Phase 3 — Sandbox & provenance
 

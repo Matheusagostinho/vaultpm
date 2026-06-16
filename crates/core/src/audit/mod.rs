@@ -12,6 +12,7 @@
 
 pub mod integrity;
 pub mod osv;
+pub mod reputation;
 pub mod static_scan;
 
 use crate::config::Config;

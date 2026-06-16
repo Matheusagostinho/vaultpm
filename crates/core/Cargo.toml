@@ -27,3 +27,7 @@ futures.workspace = true
 dirs.workspace = true
 console.workspace = true
 bytes.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true }
+reqwest = { workspace = true }

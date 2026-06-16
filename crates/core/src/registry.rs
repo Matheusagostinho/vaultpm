@@ -24,6 +24,18 @@ pub struct Packument {
     /// `time[version] = ISO timestamp`; also has `created` / `modified`.
     #[serde(default)]
     pub time: HashMap<String, String>,
+    /// Current maintainers of the package (used for takeover heuristics).
+    #[serde(default)]
+    pub maintainers: Vec<Maintainer>,
+}
+
+/// A package maintainer as listed in the registry.
+#[derive(Debug, Clone, Deserialize)]
+pub struct Maintainer {
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub email: Option<String>,
 }
 
 /// Per-version metadata from the packument.

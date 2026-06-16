@@ -58,8 +58,15 @@ runs           (audit after)    (just disable)
 
 Socket and friends pioneered pre-install behavioral analysis — but they're
 commercial SaaS that *wrap* npm. snpm/rnpm are fast Rust package managers but
-ship only passive defenses. **Vault is the first open-source native package
-manager where the security analysis is built into the installer itself.**
+ship only passive defenses.
+
+> **Vault é o primeiro package manager open-source nativo onde a análise de
+> segurança (CVE + scan estático + sandbox Landlock) está embutida no
+> instalador, offline-capable, num único binário.**
+>
+> *(Vault is the first open-source native package manager where the security
+> analysis — CVE + static scan + Landlock sandbox — is built into the installer
+> itself, offline-capable, in a single binary.)*
 
 ---
 
