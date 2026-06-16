@@ -174,6 +174,7 @@ mod tests {
         assert_eq!(p.write, vec![PathBuf::from("/tmp/x")]);
     }
 
+    #[cfg(unix)]
     fn base_system_policy() -> Policy {
         let mut p = Policy::default();
         for dir in ["/usr", "/lib", "/lib64", "/bin", "/etc", "/proc", "/dev"] {
