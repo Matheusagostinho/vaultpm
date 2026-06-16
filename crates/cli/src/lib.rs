@@ -37,6 +37,9 @@ enum Command {
         /// Install even if security policy would block a package.
         #[arg(long)]
         force: bool,
+        /// Treat any advisory (not just critical) as a block.
+        #[arg(long)]
+        strict: bool,
     },
     /// Add one or more packages to dependencies and install.
     Add {
@@ -83,10 +86,12 @@ async fn run_async() -> ExitCode {
             packages,
             production,
             force,
+            strict,
         } => {
             let mut opts = InstallOptions::new(&project_dir);
             opts.include_dev = !production;
             opts.force = force;
+            opts.strict = strict;
             if packages.is_empty() {
                 finish(vault_core::install(&opts).await)
             } else {
@@ -114,11 +119,16 @@ async fn run_async() -> ExitCode {
             Err(e) => fail(e),
         },
         Command::Run { script } => {
-            eprintln!(
-                "{} `vault run {script}` is planned for phase 4 (sandboxed script execution).",
-                style("·").dim()
-            );
-            ExitCode::FAILURE
+            let sb = if vault_core::script::sandbox_enforced() {
+                style("🔒 sandboxed (Landlock)").green()
+            } else {
+                style("⚠ no sandbox (Landlock unavailable)").yellow()
+            };
+            eprintln!("{} running `{script}` — {sb}", style("▶").cyan());
+            match vault_core::script::run_named(&project_dir, &script) {
+                Ok(code) => ExitCode::from(code.clamp(0, 255) as u8),
+                Err(e) => fail(e),
+            }
         }
     };
 

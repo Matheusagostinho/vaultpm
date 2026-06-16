@@ -15,10 +15,12 @@ file is extracted.**
 </div>
 
 > [!WARNING]
-> **Status: alpha (v0.1).** The core install pipeline and the OSV CVE gate are
-> functional today. The sandbox, maintainer-takeover detection, and full
-> PubGrub resolver are on the [roadmap](./ROADMAP.md). Don't use it as your only
-> package manager in production yet — but please try it and file issues.
+> **Status: alpha (v0.1).** Working today: the install pipeline, the OSV CVE
+> gate, obfuscation-resistant script analysis, maintainer-takeover + typosquat
+> signals, and a real **Landlock sandbox** for `vault run`. Still on the
+> [roadmap](./ROADMAP.md): the PubGrub resolver and pnpm-style isolated layout.
+> Don't use it as your only package manager in production yet — but please try
+> it and file issues.
 
 ---
 
@@ -52,7 +54,7 @@ runs           (audit after)    (just disable)
 | Is itself a package manager | ✅ | ❌ (wraps npm) | ✅ | ✅ |
 | Pre-install CVE scan | ✅ | ✅ | partial | ❌ |
 | Static analysis of install scripts | ✅ | ✅ | ❌ | ❌ |
-| Kernel sandbox for scripts | ✅ *(roadmap)* | ❌ | ❌ | ❌ |
+| Kernel sandbox for scripts | ✅ Landlock | ❌ | ❌ | ❌ |
 | Open source & self-contained | ✅ | ❌ (SaaS) | ✅ | ✅ |
 | Native single binary | ✅ | ❌ | ✅ | bun ✅ |
 
@@ -173,18 +175,22 @@ defaults).
 
 ```
 crates/
-├── cli/     # clap CLI → the `vault` and `vt` binaries
-└── core/    # the engine:
+├── cli/        # clap CLI → the `vault` and `vt` binaries
+├── sandbox/    # Landlock filesystem sandbox for `vault run`
+└── core/       # the engine:
     ├── resolver   dependency resolution
     ├── registry   npm registry client
     ├── fetcher    download + verify + extract
     ├── store      content-addressable store (~/.vault/store)
     ├── linker     node_modules materialization
     ├── lockfile   vault.lock
+    ├── script     sandboxed script execution
     └── audit/     the security layer
         ├── integrity    SHA-512 verification
-        ├── osv          CVE lookup (OSV.dev)
-        └── static_scan  lifecycle script analysis
+        ├── osv          CVE lookup (OSV.dev) + persistent cache
+        ├── static_scan  obfuscation-resistant lifecycle script analysis
+        ├── reputation   recency + popularity + maintainer-diff
+        └── typosquat    look-alike package detection
 ```
 
 See [ROADMAP.md](./ROADMAP.md) for the full plan to a 1.0 release.

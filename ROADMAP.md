@@ -58,12 +58,18 @@ The full plan from today's alpha to a **genuinely functional and distributable**
 
 ## Phase 3 — Sandbox & provenance
 
-- [ ] **Landlock sandbox** (Linux ≥ 5.13) for approved lifecycle scripts
-- [ ] Permission policy from `vault.toml` (fs read/write/exec, net allowlist)
-- [ ] Approved-script execution model with interactive allowlist prompt
-- [ ] Graceful fallback (explicit warning) on kernels without Landlock
-- [ ] **Sigstore provenance** verification of npm attestations
-- [ ] `--strict` mode (require provenance; treat warnings as blocks)
+- [x] **Landlock sandbox** (`crates/sandbox`) — default-deny FS, verified to
+      block `~/.ssh` access while allowing the project + runtime
+- [x] **Reliable Landlock detection** via the `landlock_create_ruleset` ABI probe
+- [x] `vault run <script>` — runs package.json scripts inside the sandbox
+- [x] Graceful fallback (explicit warning, `Status::Unavailable`) when Landlock
+      is missing or on non-Linux platforms
+- [x] `--strict` mode — treat any advisory (not just critical) as a block
+- [ ] Wire `sandbox.allow_fs_read/write` from `vault.toml` into the run policy
+- [ ] Auto-run audited lifecycle scripts during install (opt-in `--allow-scripts`)
+      with an interactive allowlist prompt
+- [ ] Landlock **network** restriction (ABI v4, kernel ≥ 6.7) for scripts
+- [ ] **Sigstore provenance** verification of npm attestations + `require_provenance`
 - [ ] macOS sandbox via `sandbox-exec` profile (parity, best-effort)
 
 ## Phase 4 — Correctness & performance (to truly rival pnpm)

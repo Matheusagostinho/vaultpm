@@ -67,6 +67,15 @@ impl PackageJson {
         }
     }
 
+    /// The body of a named entry in the `scripts` map, if present.
+    pub fn script(&self, name: &str) -> Option<String> {
+        self.raw
+            .get("scripts")?
+            .get(name)?
+            .as_str()
+            .map(str::to_string)
+    }
+
     /// Insert or update a dependency in `dependencies`.
     pub fn set_dependency(&mut self, name: &str, range: &str) {
         let obj = self.raw.as_object_mut().expect("package.json is an object");

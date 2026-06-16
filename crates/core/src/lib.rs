@@ -17,6 +17,7 @@ pub mod lockfile;
 pub mod package_json;
 pub mod registry;
 pub mod resolver;
+pub mod script;
 pub mod store;
 
 use audit::AuditReport;
@@ -38,6 +39,8 @@ pub struct InstallOptions {
     pub include_dev: bool,
     /// When true, security blocks are downgraded to warnings (`--force`).
     pub force: bool,
+    /// When true, any advisory (not just critical) blocks the install.
+    pub strict: bool,
 }
 
 impl InstallOptions {
@@ -46,6 +49,7 @@ impl InstallOptions {
             project_dir: project_dir.into(),
             include_dev: true,
             force: false,
+            strict: false,
         }
     }
 }
@@ -125,6 +129,14 @@ pub async fn install(opts: &InstallOptions) -> Result<InstallSummary> {
     // 2b. Reputation signals (recency, popularity, typosquat, maintainer-diff).
     for msg in reputation_all(&registry, &http, &cfg, &store, &resolution, &roots).await {
         summary.warnings.push(msg);
+    }
+
+    // 2c. In strict mode, any advisory (not just critical) is a block.
+    if opts.strict && summary.advisories > 0 {
+        summary.blocked.push(format!(
+            "{} advisory/ies present and --strict is set",
+            summary.advisories
+        ));
     }
 
     // 3. Enforce blocks unless --force.

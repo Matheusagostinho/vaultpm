@@ -54,6 +54,11 @@ impl Store {
         Ok(Self { root })
     }
 
+    /// The store's root directory (`~/.vault/store` by default).
+    pub fn root(&self) -> &std::path::Path {
+        &self.root
+    }
+
     fn files_dir(&self) -> PathBuf {
         self.root.join(STORE_VERSION).join("files")
     }

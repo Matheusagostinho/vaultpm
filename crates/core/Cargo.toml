@@ -8,6 +8,7 @@ repository.workspace = true
 description = "Core library for the Vault secure package manager: resolver, fetcher, CAS store, linker and security audit."
 
 [dependencies]
+vault-sandbox = { path = "../sandbox" }
 tokio.workspace = true
 reqwest.workspace = true
 serde.workspace = true
