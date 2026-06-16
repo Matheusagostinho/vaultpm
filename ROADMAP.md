@@ -42,12 +42,19 @@ The full plan from today's alpha to a **genuinely functional and distributable**
 - [x] **Low-popularity warning** via npm downloads API (`min_weekly_downloads`)
 - [x] Offline integration tests covering the fixture scenarios
       (`clean`, `postinstall-network`, `postinstall-ssh`, `postinstall-env`)
-- [ ] `swc`-based **AST** analysis of scripts (resists obfuscation that beats regex)
-- [ ] npm Advisory API as a second CVE source
-- [ ] Full maintainer-diff (compare against last-seen maintainer set, not just recency)
-- [ ] Reputation checks on transitive deps (currently direct-only to bound API calls)
-- [ ] Persistent audit cache (`audit.json` per content hash, TTL from config)
-- [ ] Typosquatting heuristic (edit-distance vs popular package names)
+- [x] **Obfuscation-resistant script scan**: whitespace-stripped matching +
+      `eval`/`atob`/`Function`/`fromCharCode`/`process.binding` rules +
+      `~/.npmrc` theft + hex/unicode-escape density heuristic
+- [x] **Full maintainer-diff**: store the last-seen maintainer set and warn when
+      new maintainers appear between installs
+- [x] **Reputation on transitive deps** via `security.check_transitive`
+- [x] **Persistent audit cache** (per `name@version` in the store, TTL from
+      `audit.cache_ttl_hours`) — repeat installs reuse vetted verdicts
+- [x] **Typosquatting heuristic** (Levenshtein vs a bundled popular-name list)
+- [ ] `swc`-based **full AST** analysis (deeper hardening beyond the current
+      token/normalization scan; resists data-flow obfuscation)
+- [ ] npm Advisory API as a second CVE source *(note: OSV already aggregates the
+      GitHub Advisory DB + npm advisories, so this is largely redundant today)*
 
 ## Phase 3 — Sandbox & provenance
 
@@ -121,6 +128,10 @@ The full plan from today's alpha to a **genuinely functional and distributable**
 5. **Trustworthy:** Vault's own releases carry provenance; threat model and
    security policy are public (Phases 5–6).
 
-**Where we are now:** Phases 0–1 complete; Phase 2 substantially started (CVE
-gate + static scan live); distribution scaffolding (Phase 5) in place and ready
-for the first publish. Next up: Phase 2 depth, then the Phase 4 resolver.
+**Where we are now:** Phases 0–1 complete. **Phase 2 essentially complete** —
+CVE gate, obfuscation-resistant static scan, maintainer-takeover signals
+(recency + maintainer-diff), typosquat detection, low-popularity warnings and a
+persistent audit cache are all live and tested (33 unit + 5 integration tests).
+Distribution scaffolding (Phase 5) is in place and ready for the first publish.
+Only deep `swc` AST analysis remains optional in Phase 2. **Next up: Phase 3
+(Landlock sandbox) and the Phase 4 PubGrub resolver.**

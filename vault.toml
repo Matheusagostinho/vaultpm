@@ -12,6 +12,9 @@ min_weekly_downloads = 100
 abort_on_critical_cve = true
 # Require Sigstore provenance attestations (strict mode, phase 3).
 require_provenance = false
+# Run reputation checks (recency/popularity/typosquat) on transitive deps too,
+# not just direct ones. Off by default to bound API calls.
+check_transitive = false
 
 [audit]
 # CVE sources to query. "osv" = OSV.dev (free, no auth). "npm" planned (phase 2).

@@ -27,6 +27,9 @@ pub struct SecurityConfig {
     pub abort_on_critical_cve: bool,
     /// Require Sigstore provenance (strict mode, phase 3).
     pub require_provenance: bool,
+    /// Run reputation checks (recency/popularity) on transitive deps too, not
+    /// just direct ones. Off by default to bound API calls.
+    pub check_transitive: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -62,6 +65,7 @@ impl Default for SecurityConfig {
             min_weekly_downloads: 100,
             abort_on_critical_cve: true,
             require_provenance: false,
+            check_transitive: false,
         }
     }
 }

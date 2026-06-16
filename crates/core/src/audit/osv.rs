@@ -52,7 +52,7 @@ struct DatabaseSpecific {
 }
 
 /// A normalized advisory result.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Advisory {
     pub id: String,
     pub summary: String,

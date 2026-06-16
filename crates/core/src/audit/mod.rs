@@ -10,14 +10,17 @@
 //! Phase 3 adds maintainer-takeover detection, a Landlock sandbox, and Sigstore
 //! provenance (see `ROADMAP.md`).
 
+pub mod cache;
 pub mod integrity;
 pub mod osv;
 pub mod reputation;
 pub mod static_scan;
+pub mod typosquat;
 
 use crate::config::Config;
 use crate::error::{Result, VaultError};
 use crate::registry::VersionMeta;
+use crate::store::Store;
 
 /// Aggregated audit outcome for one package.
 #[derive(Debug, Default)]
@@ -48,12 +51,24 @@ pub async fn audit_package(
     client: &reqwest::Client,
     cfg: &Config,
     meta: &VersionMeta,
+    store: Option<&Store>,
 ) -> Result<AuditReport> {
     let mut report = AuditReport::default();
 
-    // 1. CVE lookup (only if OSV is an enabled source).
+    // 1. CVE lookup (only if OSV is an enabled source), with a persistent cache.
     if cfg.audit.sources.iter().any(|s| s == "osv") {
-        report.advisories = osv::query(client, &meta.name, &meta.version).await?;
+        let cached =
+            store.and_then(|s| cache::get(s, &meta.name, &meta.version, cfg.audit.cache_ttl_hours));
+        report.advisories = match cached {
+            Some(advisories) => advisories,
+            None => {
+                let advisories = osv::query(client, &meta.name, &meta.version).await?;
+                if let Some(s) = store {
+                    cache::put(s, &meta.name, &meta.version, &advisories);
+                }
+                advisories
+            }
+        };
     }
 
     // 2. Static analysis of lifecycle scripts.

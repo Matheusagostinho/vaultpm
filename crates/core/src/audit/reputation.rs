@@ -6,13 +6,21 @@
 //! first-line heuristic behind maintainer-takeover detection: a brand-new
 //! release of an otherwise-established package is the classic takeover pattern.
 
+use crate::audit::typosquat;
 use crate::config::Config;
 use crate::registry::Packument;
+use crate::store::Store;
+use serde::{Deserialize, Serialize};
 
 /// A single reputation warning for a package.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RepWarning {
     pub message: String,
+}
+
+#[derive(Serialize, Deserialize, Default)]
+struct MaintainerRecord {
+    names: Vec<String>,
 }
 
 /// Assess recency + popularity for one resolved package.
@@ -54,7 +62,58 @@ pub fn assess(
         }
     }
 
+    // Typosquatting: does this name look like a popular package?
+    if let Some(popular) = typosquat::nearest_popular(&packument.name) {
+        out.push(RepWarning {
+            message: format!(
+                "{} closely resembles the popular package `{popular}` — possible typosquat",
+                packument.name
+            ),
+        });
+    }
+
     out
+}
+
+/// Compare the package's current maintainer set against the one seen on the
+/// last install and warn if new maintainers appeared. Always updates the stored
+/// record. Returns `None` on first sight (nothing to compare yet).
+pub fn check_maintainers(store: &Store, packument: &Packument) -> Option<RepWarning> {
+    let mut current: Vec<String> = packument
+        .maintainers
+        .iter()
+        .map(|m| m.name.clone())
+        .filter(|n| !n.is_empty())
+        .collect();
+    current.sort();
+    current.dedup();
+
+    let prev: Option<MaintainerRecord> = store.read_meta("maintainers", &packument.name);
+    let warning = prev.as_ref().and_then(|rec| {
+        let added: Vec<String> = current
+            .iter()
+            .filter(|n| !rec.names.contains(n))
+            .cloned()
+            .collect();
+        if !rec.names.is_empty() && !added.is_empty() {
+            Some(RepWarning {
+                message: format!(
+                    "{}: maintainer set changed since last install (new: {}) — possible takeover",
+                    packument.name,
+                    added.join(", ")
+                ),
+            })
+        } else {
+            None
+        }
+    });
+
+    let _ = store.write_meta(
+        "maintainers",
+        &packument.name,
+        &MaintainerRecord { names: current },
+    );
+    warning
 }
 
 /// Days between a version's publish timestamp and `now_days`. `None` if the

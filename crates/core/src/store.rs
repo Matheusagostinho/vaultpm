@@ -67,6 +67,33 @@ impl Store {
             .join(format!("{safe}.json"))
     }
 
+    /// Path to a JSON metadata file under `<store>/v1/<kind>/<key>.json`.
+    /// Used by the audit cache and maintainer-tracking. The parent directory is
+    /// created on demand by writers.
+    pub fn meta_path(&self, kind: &str, key: &str) -> PathBuf {
+        let safe = key.replace('/', "+");
+        self.root
+            .join(STORE_VERSION)
+            .join(kind)
+            .join(format!("{safe}.json"))
+    }
+
+    /// Read and deserialize a metadata file, if present and valid.
+    pub fn read_meta<T: serde::de::DeserializeOwned>(&self, kind: &str, key: &str) -> Option<T> {
+        let text = std::fs::read_to_string(self.meta_path(kind, key)).ok()?;
+        serde_json::from_str(&text).ok()
+    }
+
+    /// Serialize and write a metadata file, creating its directory.
+    pub fn write_meta<T: serde::Serialize>(&self, kind: &str, key: &str, value: &T) -> Result<()> {
+        let path = self.meta_path(kind, key);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(path, serde_json::to_string(value)?)?;
+        Ok(())
+    }
+
     /// Path inside the CAS for a given content hash (sharded by first 2 chars).
     fn object_path(&self, hash: &str) -> PathBuf {
         let (shard, rest) = hash.split_at(2);

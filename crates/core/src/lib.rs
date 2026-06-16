@@ -92,7 +92,7 @@ pub async fn install(opts: &InstallOptions) -> Result<InstallSummary> {
         style("🛡").yellow(),
         resolution.packages.len()
     );
-    let reports = audit_all(&http, &cfg, &resolution).await;
+    let reports = audit_all(&http, &cfg, &store, &resolution).await;
 
     let mut audit_reports: BTreeMap<String, AuditReport> = BTreeMap::new();
     for (id, result) in reports {
@@ -122,8 +122,8 @@ pub async fn install(opts: &InstallOptions) -> Result<InstallSummary> {
         }
     }
 
-    // 2b. Reputation signals on direct dependencies (recency + popularity).
-    for msg in reputation_all(&registry, &http, &cfg, &resolution, &roots).await {
+    // 2b. Reputation signals (recency, popularity, typosquat, maintainer-diff).
+    for msg in reputation_all(&registry, &http, &cfg, &store, &resolution, &roots).await {
         summary.warnings.push(msg);
     }
 
@@ -202,6 +202,7 @@ pub async fn remove(opts: &InstallOptions, names: &[String]) -> Result<InstallSu
 pub async fn audit_project(project_dir: &Path) -> Result<InstallSummary> {
     let cfg = Config::load(project_dir);
     let pkg_json = PackageJson::load(project_dir)?;
+    let store = store::Store::open(cfg.store.path.as_deref())?;
     let registry = Registry::new();
     let http = reqwest::Client::new();
 
@@ -212,7 +213,7 @@ pub async fn audit_project(project_dir: &Path) -> Result<InstallSummary> {
         ..Default::default()
     };
 
-    for (id, result) in audit_all(&http, &cfg, &resolution).await {
+    for (id, result) in audit_all(&http, &cfg, &store, &resolution).await {
         match result {
             Ok(report) => {
                 summary.advisories += report.advisories.len();
@@ -229,7 +230,7 @@ pub async fn audit_project(project_dir: &Path) -> Result<InstallSummary> {
             Err(e) => return Err(e),
         }
     }
-    for msg in reputation_all(&registry, &http, &cfg, &resolution, &roots).await {
+    for msg in reputation_all(&registry, &http, &cfg, &store, &resolution, &roots).await {
         summary.warnings.push(msg);
     }
     Ok(summary)
@@ -238,6 +239,7 @@ pub async fn audit_project(project_dir: &Path) -> Result<InstallSummary> {
 async fn audit_all(
     http: &reqwest::Client,
     cfg: &Config,
+    store: &store::Store,
     resolution: &resolver::Resolution,
 ) -> Vec<(String, Result<AuditReport>)> {
     use futures::stream::StreamExt;
@@ -245,9 +247,10 @@ async fn audit_all(
         .map(|pkg| {
             let http = http.clone();
             let cfg = cfg.clone();
+            let store = store.clone();
             async move {
                 let id = pkg.id();
-                let res = audit::audit_package(&http, &cfg, &pkg.meta).await;
+                let res = audit::audit_package(&http, &cfg, &pkg.meta, Some(&store)).await;
                 (id, res)
             }
         })
@@ -256,36 +259,49 @@ async fn audit_all(
         .await
 }
 
-/// Run reputation checks (recency + popularity) for the **direct** dependencies
-/// only, to bound API calls and noise. Returns warning strings.
+/// Run reputation checks (recency + popularity + typosquat + maintainer-diff).
+/// Scoped to **direct** dependencies by default; set `security.check_transitive`
+/// to cover the whole graph. Returns warning strings.
 async fn reputation_all(
     registry: &Registry,
     http: &reqwest::Client,
     cfg: &Config,
+    store: &store::Store,
     resolution: &resolver::Resolution,
     roots: &BTreeMap<String, String>,
 ) -> Vec<String> {
     use futures::stream::StreamExt;
     let now = audit::reputation::now_epoch_days();
-    let direct: Vec<resolver::ResolvedPackage> = roots
-        .keys()
-        .filter_map(|name| resolution.packages.get(name).cloned())
-        .collect();
 
-    futures::stream::iter(direct)
+    let targets: Vec<resolver::ResolvedPackage> = if cfg.security.check_transitive {
+        resolution.packages.values().cloned().collect()
+    } else {
+        roots
+            .keys()
+            .filter_map(|name| resolution.packages.get(name).cloned())
+            .collect()
+    };
+
+    futures::stream::iter(targets)
         .map(|pkg| {
             let registry = registry.clone();
             let http = http.clone();
             let cfg = cfg.clone();
+            let store = store.clone();
             async move {
                 let Ok(packument) = registry.packument(&pkg.name).await else {
                     return Vec::new();
                 };
                 let downloads = audit::reputation::weekly_downloads(&http, &pkg.name).await;
-                audit::reputation::assess(&cfg, &packument, &pkg.version, downloads, now)
-                    .into_iter()
-                    .map(|w| w.message)
-                    .collect::<Vec<_>>()
+                let mut msgs: Vec<String> =
+                    audit::reputation::assess(&cfg, &packument, &pkg.version, downloads, now)
+                        .into_iter()
+                        .map(|w| w.message)
+                        .collect();
+                if let Some(w) = audit::reputation::check_maintainers(&store, &packument) {
+                    msgs.push(w.message);
+                }
+                msgs
             }
         })
         .buffer_unordered(CONCURRENCY)
