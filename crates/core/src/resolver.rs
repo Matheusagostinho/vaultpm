@@ -17,7 +17,7 @@
 use crate::error::{Result, VaultError};
 use crate::registry::{Packument, Registry, VersionMeta};
 use node_semver::{Range, Version};
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::BTreeMap;
 
 /// A fully resolved package pinned to one concrete version, with its own
 /// dependencies resolved to concrete versions.
@@ -56,76 +56,137 @@ pub struct Resolution {
     pub warnings: Vec<ResolutionWarning>,
 }
 
-/// Resolve top-level requirements into a per-version dependency graph.
-pub async fn resolve(registry: &Registry, roots: &BTreeMap<String, String>) -> Result<Resolution> {
-    let mut res = Resolution::default();
-    let mut range_cache: HashMap<(String, String), String> = HashMap::new();
-    let mut work: VecDeque<String> = VecDeque::new();
+/// Max concurrent registry requests during resolution (network-bound).
+const RESOLVE_CONCURRENCY: usize = 24;
 
-    // Resolve direct dependencies first.
-    for (alias, spec) in roots {
-        let (real_name, real_range) = parse_dep_spec(alias, spec);
-        let version = resolve_range(registry, &mut range_cache, &real_name, &real_range).await?;
+/// One dependency requirement to resolve: which package wants it, under what
+/// import alias, the real package + range, and whether it is optional.
+struct DepReq {
+    parent: String,
+    alias: String,
+    real_name: String,
+    real_range: String,
+    optional: bool,
+}
+
+/// Resolve top-level requirements into a per-version dependency graph.
+///
+/// Resolution is **concurrent and level-ordered**: every requirement in the
+/// current BFS frontier is resolved in parallel (bounded by
+/// [`RESOLVE_CONCURRENCY`]), then applied, then the next frontier is expanded.
+/// Packument fetches for the same package coalesce via the registry's
+/// singleflight cache, so the network is hit at most once per package.
+pub async fn resolve(registry: &Registry, roots: &BTreeMap<String, String>) -> Result<Resolution> {
+    use futures::stream::{self, StreamExt};
+    let mut res = Resolution::default();
+
+    // Resolve the direct dependencies concurrently.
+    let root_reqs: Vec<(String, String, String)> = roots
+        .iter()
+        .map(|(alias, spec)| {
+            let (rn, rr) = parse_dep_spec(alias, spec);
+            (alias.clone(), rn, rr)
+        })
+        .collect();
+    let root_results: Vec<(String, String, Result<String>)> = stream::iter(root_reqs)
+        .map(|(alias, real_name, real_range)| {
+            let reg = registry.clone();
+            async move {
+                let v = resolve_range(&reg, &real_name, &real_range).await;
+                (alias, real_name, v)
+            }
+        })
+        .buffer_unordered(RESOLVE_CONCURRENCY)
+        .collect()
+        .await;
+
+    let mut frontier: Vec<String> = Vec::new();
+    for (alias, real_name, version) in root_results {
+        let version = version?;
         let id = format!("{real_name}@{version}");
-        res.roots.insert(alias.clone(), id.clone());
+        res.roots.insert(alias, id.clone());
         if !res.packages.contains_key(&id) {
             insert_node(registry, &mut res, &real_name, &version).await?;
-            work.push_back(id);
+            frontier.push(id);
         }
     }
 
-    // Resolve the transitive graph.
-    while let Some(id) = work.pop_front() {
-        let deps: Vec<(String, String)> = res.packages[&id]
-            .meta
-            .dependencies
-            .iter()
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect();
-
-        let mut resolved_deps = BTreeMap::new();
-        for (alias, spec) in deps {
-            let (real_name, real_range) = parse_dep_spec(&alias, &spec);
-            let dep_version =
-                resolve_range(registry, &mut range_cache, &real_name, &real_range).await?;
-            let dep_id = format!("{real_name}@{dep_version}");
-            resolved_deps.insert(alias.clone(), dep_id.clone());
-            if !res.packages.contains_key(&dep_id) {
-                insert_node(registry, &mut res, &real_name, &dep_version).await?;
-                work.push_back(dep_id);
+    // Expand the graph one level at a time, resolving each level in parallel.
+    while !frontier.is_empty() {
+        let mut reqs: Vec<DepReq> = Vec::new();
+        for id in &frontier {
+            let pkg = &res.packages[id];
+            for (alias, spec) in &pkg.meta.dependencies {
+                let (real_name, real_range) = parse_dep_spec(alias, spec);
+                reqs.push(DepReq {
+                    parent: id.clone(),
+                    alias: alias.clone(),
+                    real_name,
+                    real_range,
+                    optional: false,
+                });
+            }
+            for (alias, spec) in &pkg.meta.optional_dependencies {
+                let (real_name, real_range) = parse_dep_spec(alias, spec);
+                reqs.push(DepReq {
+                    parent: id.clone(),
+                    alias: alias.clone(),
+                    real_name,
+                    real_range,
+                    optional: true,
+                });
             }
         }
 
-        // Optional dependencies: best-effort. A resolution/fetch failure must
-        // not break the install (npm semantics).
-        let opt_deps: Vec<(String, String)> = res.packages[&id]
-            .meta
-            .optional_dependencies
-            .iter()
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect();
-        for (alias, spec) in opt_deps {
-            let (real_name, real_range) = parse_dep_spec(&alias, &spec);
-            match resolve_range(registry, &mut range_cache, &real_name, &real_range).await {
-                Ok(dep_version) => {
-                    let dep_id = format!("{real_name}@{dep_version}");
-                    resolved_deps.insert(alias.clone(), dep_id.clone());
-                    if !res.packages.contains_key(&dep_id)
-                        && insert_node(registry, &mut res, &real_name, &dep_version)
-                            .await
-                            .is_ok()
-                    {
-                        work.push_back(dep_id);
-                    }
+        // Resolve every requirement of this level concurrently.
+        let resolved: Vec<(DepReq, Result<String>)> = stream::iter(reqs)
+            .map(|req| {
+                let reg = registry.clone();
+                async move {
+                    let v = resolve_range(&reg, &req.real_name, &req.real_range).await;
+                    (req, v)
                 }
-                Err(_) => res.warnings.push(ResolutionWarning {
-                    name: alias.clone(),
+            })
+            .buffer_unordered(RESOLVE_CONCURRENCY)
+            .collect()
+            .await;
+
+        // Apply results sequentially (packuments are already cached, so
+        // `insert_node` does no network I/O here).
+        let mut next: Vec<String> = Vec::new();
+        for (req, version) in resolved {
+            match version {
+                Ok(version) => {
+                    let dep_id = format!("{}@{version}", req.real_name);
+                    if !res.packages.contains_key(&dep_id) {
+                        match insert_node(registry, &mut res, &req.real_name, &version).await {
+                            Ok(()) => next.push(dep_id.clone()),
+                            Err(e) if req.optional => {
+                                res.warnings.push(ResolutionWarning {
+                                    name: req.alias.clone(),
+                                    message: format!("optional dependency skipped ({e})"),
+                                });
+                                continue;
+                            }
+                            Err(e) => return Err(e),
+                        }
+                    }
+                    res.packages
+                        .get_mut(&req.parent)
+                        .unwrap()
+                        .deps
+                        .insert(req.alias, dep_id);
+                }
+                Err(_) if req.optional => res.warnings.push(ResolutionWarning {
+                    name: req.alias,
                     message: "optional dependency skipped (could not resolve)".into(),
                 }),
+                Err(e) => return Err(e),
             }
         }
-
-        res.packages.get_mut(&id).unwrap().deps = resolved_deps;
+        next.sort();
+        next.dedup();
+        frontier = next;
     }
 
     Ok(res)
@@ -152,21 +213,11 @@ fn parse_dep_spec(alias: &str, spec: &str) -> (String, String) {
     (alias.to_string(), spec.to_string())
 }
 
-/// Resolve `(name, range)` to a concrete version, caching identical requests.
-async fn resolve_range(
-    registry: &Registry,
-    cache: &mut HashMap<(String, String), String>,
-    name: &str,
-    range: &str,
-) -> Result<String> {
-    let key = (name.to_string(), range.to_string());
-    if let Some(v) = cache.get(&key) {
-        return Ok(v.clone());
-    }
+/// Resolve `(name, range)` to a concrete version. The packument fetch is
+/// deduplicated by the registry's singleflight cache.
+async fn resolve_range(registry: &Registry, name: &str, range: &str) -> Result<String> {
     let packument = registry.packument(name).await?;
-    let version = pick_version(name, range, &packument)?;
-    cache.insert(key, version.clone());
-    Ok(version)
+    pick_version(name, range, &packument)
 }
 
 /// Fetch a version's metadata and insert it as a graph node (deps filled later).

@@ -19,9 +19,10 @@ file is extracted.**
 > resolver + pnpm-style isolated `node_modules`**, the OSV CVE gate,
 > obfuscation-resistant script analysis, maintainer-takeover + typosquat signals,
 > `.bin` linking, npm aliases, and a real **Landlock sandbox** for `vault run`.
-> It is **not yet as fast** as pnpm — see the honest [benchmarks](./BENCHMARKS.md).
-> Don't use it as your only package manager in production yet — but please try it
-> and [file issues](https://github.com/Matheusagostinho/vaultpm/issues).
+> On a **warm cache it already installs faster than pnpm** *while* auditing every
+> dependency — see the honest [benchmarks](./BENCHMARKS.md) (cold installs still
+> trail pnpm). Don't use it as your only package manager in production yet — but
+> please try it and [file issues](https://github.com/Matheusagostinho/vaultpm/issues).
 >
 > 🌐 **Website:** https://matheusagostinho.github.io/vaultpm/ · 🔐 [Security policy](./SECURITY.md)
 

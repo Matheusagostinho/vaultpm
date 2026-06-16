@@ -86,7 +86,9 @@ The full plan from today's alpha to a **genuinely functional and distributable**
 - [x] **npm alias dependencies** (`"x": "npm:y@^1"`) — unblocks express/rimraf trees
 - [x] **Optional dependency** traversal (best-effort, skip on failure)
 - [x] **`.bin/` linking** for package executables (top-level + per-package)
-- [ ] **Concurrent graph resolution** (top perf win — see BENCHMARKS.md)
+- [x] **Concurrent graph resolution** + registry singleflight — warm installs
+      now beat pnpm (see BENCHMARKS.md)
+- [ ] On-disk packument cache (ETag revalidation) to cut cold-cache time
 - [ ] Peer-dependency resolution + warnings
 - [ ] **Lockfile-driven installs** (respect existing `vault.lock`; `--frozen-lockfile`)
 - [ ] Workspaces / monorepo support (`workspaces` field, filtering)

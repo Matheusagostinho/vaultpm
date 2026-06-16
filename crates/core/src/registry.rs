@@ -8,9 +8,13 @@ use crate::error::{Result, VaultError};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, OnceCell};
 
 const DEFAULT_REGISTRY: &str = "https://registry.npmjs.org";
+
+/// Singleflight cache: each package name maps to a cell that resolves to its
+/// packument exactly once, shared across concurrent callers.
+type PackumentCache = Arc<Mutex<HashMap<String, Arc<OnceCell<Arc<Packument>>>>>>;
 
 /// The subset of a packument we care about.
 #[derive(Debug, Clone, Deserialize)]
@@ -62,12 +66,15 @@ pub struct Dist {
     pub integrity: Option<String>,
 }
 
-/// A registry client with an in-memory packument cache.
+/// A registry client with a singleflight in-memory packument cache.
+///
+/// Each name maps to a [`OnceCell`]; concurrent callers requesting the same
+/// package share a single network fetch instead of racing N duplicate requests.
 #[derive(Clone)]
 pub struct Registry {
     client: reqwest::Client,
     base_url: String,
-    cache: Arc<Mutex<HashMap<String, Arc<Packument>>>>,
+    cache: PackumentCache,
 }
 
 impl Registry {
@@ -89,11 +96,21 @@ impl Registry {
         }
     }
 
-    /// Fetch (and cache) the packument for a package name.
+    /// Fetch (and cache) the packument for a package name. Concurrent calls for
+    /// the same name coalesce into one network request (singleflight).
     pub async fn packument(&self, name: &str) -> Result<Arc<Packument>> {
-        if let Some(hit) = self.cache.lock().await.get(name).cloned() {
-            return Ok(hit);
-        }
+        let cell = {
+            let mut cache = self.cache.lock().await;
+            cache
+                .entry(name.to_string())
+                .or_insert_with(|| Arc::new(OnceCell::new()))
+                .clone()
+        };
+        let packument = cell.get_or_try_init(|| self.fetch_packument(name)).await?;
+        Ok(packument.clone())
+    }
+
+    async fn fetch_packument(&self, name: &str) -> Result<Arc<Packument>> {
         // Scoped packages (`@scope/name`) must keep the `/` un-encoded.
         let url = format!("{}/{}", self.base_url, name);
         tracing::debug!("GET {url}");
@@ -105,12 +122,7 @@ impl Registry {
             });
         }
         let packument: Packument = resp.json().await?;
-        let packument = Arc::new(packument);
-        self.cache
-            .lock()
-            .await
-            .insert(name.to_string(), packument.clone());
-        Ok(packument)
+        Ok(Arc::new(packument))
     }
 
     /// Download a tarball and return its raw bytes.
