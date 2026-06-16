@@ -53,7 +53,7 @@ for (const t of TARGETS) {
     version,
     description: `Vault binary for ${t.os} ${t.cpu}.`,
     license: "MIT",
-    repository: { type: "git", url: "git+https://github.com/matheus/vaultpm.git" },
+    repository: { type: "git", url: "git+https://github.com/Matheusagostinho/vaultpm.git" },
     os: [t.os],
     cpu: [t.cpu],
     bin: {

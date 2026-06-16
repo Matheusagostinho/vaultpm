@@ -13,10 +13,10 @@
     "rust",
     "sandbox"
   ],
-  "homepage": "https://github.com/matheus/vaultpm",
+  "homepage": "https://github.com/Matheusagostinho/vaultpm",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/matheus/vaultpm.git"
+    "url": "git+https://github.com/Matheusagostinho/vaultpm.git"
   },
   "license": "MIT",
   "type": "module",

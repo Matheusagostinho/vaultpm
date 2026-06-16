@@ -2,14 +2,14 @@
 # Vault installer — downloads the prebuilt `vault` + `vt` binaries for your
 # platform from GitHub Releases.
 #
-#   curl -fsSL https://raw.githubusercontent.com/matheus/vaultpm/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/Matheusagostinho/vaultpm/main/install.sh | sh
 #
 # Environment overrides:
 #   VAULT_VERSION   release tag to install (default: latest)
 #   VAULT_BIN_DIR   install location (default: $HOME/.vault/bin)
 set -eu
 
-REPO="matheus/vaultpm"
+REPO="Matheusagostinho/vaultpm"
 BIN_DIR="${VAULT_BIN_DIR:-$HOME/.vault/bin}"
 VERSION="${VAULT_VERSION:-latest}"
 

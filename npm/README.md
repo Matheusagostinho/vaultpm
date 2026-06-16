@@ -16,4 +16,4 @@ The native binary is delivered through a per-platform optional dependency
 (`@vaultpm/<platform>-<arch>`). **Vault's own installation runs no postinstall
 scripts** — fitting for a tool whose job is to protect you from them.
 
-See the full documentation at <https://github.com/matheus/vaultpm>.
+See the full documentation at <https://github.com/Matheusagostinho/vaultpm>.

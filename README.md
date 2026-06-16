@@ -8,7 +8,7 @@ Vault installs your dependencies as fast as pnpm (global content-addressable
 store + hard links) but **actively blocks supply-chain attacks before a single
 file is extracted.**
 
-[![CI](https://github.com/matheus/vaultpm/actions/workflows/ci.yml/badge.svg)](https://github.com/matheus/vaultpm/actions/workflows/ci.yml)
+[![CI](https://github.com/Matheusagostinho/vaultpm/actions/workflows/ci.yml/badge.svg)](https://github.com/Matheusagostinho/vaultpm/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Made with Rust](https://img.shields.io/badge/made%20with-Rust-orange.svg)](https://www.rust-lang.org)
 
@@ -85,7 +85,7 @@ scripts** — exactly what you'd want from a supply-chain security tool.
 ### curl (Linux / macOS)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/matheus/vaultpm/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/Matheusagostinho/vaultpm/main/install.sh | sh
 ```
 
 ### Cargo
@@ -97,7 +97,7 @@ cargo install vault-cli
 ### Build from source
 
 ```bash
-git clone https://github.com/matheus/vaultpm
+git clone https://github.com/Matheusagostinho/vaultpm
 cd vaultpm
 cargo build --release
 # binaries at target/release/vault and target/release/vt
