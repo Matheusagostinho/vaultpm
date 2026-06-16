@@ -74,14 +74,21 @@ The full plan from today's alpha to a **genuinely functional and distributable**
 
 ## Phase 4 — Correctness & performance (to truly rival pnpm)
 
-- [ ] **PubGrub SAT resolver** replacing the flat resolver (proper conflict handling)
-- [ ] **pnpm-style isolated layout** (`node_modules/.vault` virtual store + symlinks)
+- [x] **Per-version dependency graph** replacing the flat resolver — multiple
+      versions of a package now coexist (the correct npm model), deduped via a
+      range cache
+- [x] **pnpm-style isolated layout** (`node_modules/.vault` virtual store +
+      symlinks) — verified: Node resolves nested transitive trees (chalk →
+      ansi-styles/supports-color/color-convert) with strict isolation
+- [x] Resolved dependency graph recorded in `vault.lock`
+- [ ] Full **PubGrub** backtracking to minimise duplicate versions when ranges
+      overlap (optimisation; npm's multi-version model makes this lower-priority)
 - [ ] Peer-dependency resolution + warnings
-- [ ] Optional / dev / bundled dependency semantics
+- [ ] Optional / bundled dependency semantics (currently follows `dependencies`)
 - [ ] `.bin/` linking for package executables
 - [ ] **Lockfile-driven installs** (respect existing `vault.lock`; `--frozen-lockfile`)
 - [ ] Workspaces / monorepo support (`workspaces` field, filtering)
-- [ ] Sandboxed execution of trusted lifecycle scripts (depends on Phase 3)
+- [ ] Sandboxed execution of trusted lifecycle scripts during install (Phase 3 sandbox is ready)
 - [ ] Store garbage collection (`vault store prune`) + offline mode
 - [ ] Download resume/retry, integrity-failure quarantine
 - [ ] Benchmarks vs npm / pnpm / bun (cold + warm cache)
@@ -134,10 +141,10 @@ The full plan from today's alpha to a **genuinely functional and distributable**
 5. **Trustworthy:** Vault's own releases carry provenance; threat model and
    security policy are public (Phases 5–6).
 
-**Where we are now:** Phases 0–1 complete. **Phase 2 essentially complete** —
-CVE gate, obfuscation-resistant static scan, maintainer-takeover signals
-(recency + maintainer-diff), typosquat detection, low-popularity warnings and a
-persistent audit cache are all live and tested (33 unit + 5 integration tests).
-Distribution scaffolding (Phase 5) is in place and ready for the first publish.
-Only deep `swc` AST analysis remains optional in Phase 2. **Next up: Phase 3
-(Landlock sandbox) and the Phase 4 PubGrub resolver.**
+**Where we are now:** Phases 0–1 complete. **Phase 2** essentially complete
+(CVE gate, obfuscation-resistant scan, maintainer-takeover + typosquat signals,
+audit cache). **Phase 3** core complete — a real Landlock sandbox powers
+`vault run`. **Phase 4** core complete — per-version graph resolver + pnpm-style
+isolated `node_modules`. 41 tests pass (33 unit + 5 integration + 3 sandbox).
+Distribution scaffolding (Phase 5) is in place. **Next up: publish to npm +
+crates.io, lockfile-driven installs, peer deps, and Windows support.**

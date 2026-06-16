@@ -22,6 +22,9 @@ pub struct Lockfile {
 pub struct LockedPackage {
     pub resolved: String,
     pub integrity: String,
+    /// Resolved dependency graph edges: `depName -> version`.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub dependencies: BTreeMap<String, String>,
     #[serde(rename = "auditedAt")]
     pub audited_at: String,
     #[serde(rename = "auditSources")]
@@ -53,6 +56,7 @@ impl Lockfile {
                 LockedPackage {
                     resolved: pkg.meta.dist.tarball.clone(),
                     integrity: pkg.meta.dist.integrity.clone().unwrap_or_default(),
+                    dependencies: pkg.deps.clone(),
                     audited_at: now.clone(),
                     audit_sources: audit_sources.to_vec(),
                     cve_status: cve_status.to_string(),

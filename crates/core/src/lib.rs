@@ -127,7 +127,7 @@ pub async fn install(opts: &InstallOptions) -> Result<InstallSummary> {
     }
 
     // 2b. Reputation signals (recency, popularity, typosquat, maintainer-diff).
-    for msg in reputation_all(&registry, &http, &cfg, &store, &resolution, &roots).await {
+    for msg in reputation_all(&registry, &http, &cfg, &store, &resolution).await {
         summary.warnings.push(msg);
     }
 
@@ -242,7 +242,7 @@ pub async fn audit_project(project_dir: &Path) -> Result<InstallSummary> {
             Err(e) => return Err(e),
         }
     }
-    for msg in reputation_all(&registry, &http, &cfg, &store, &resolution, &roots).await {
+    for msg in reputation_all(&registry, &http, &cfg, &store, &resolution).await {
         summary.warnings.push(msg);
     }
     Ok(summary)
@@ -280,7 +280,6 @@ async fn reputation_all(
     cfg: &Config,
     store: &store::Store,
     resolution: &resolver::Resolution,
-    roots: &BTreeMap<String, String>,
 ) -> Vec<String> {
     use futures::stream::StreamExt;
     let now = audit::reputation::now_epoch_days();
@@ -288,9 +287,15 @@ async fn reputation_all(
     let targets: Vec<resolver::ResolvedPackage> = if cfg.security.check_transitive {
         resolution.packages.values().cloned().collect()
     } else {
-        roots
-            .keys()
-            .filter_map(|name| resolution.packages.get(name).cloned())
+        resolution
+            .roots
+            .iter()
+            .filter_map(|(name, version)| {
+                resolution
+                    .packages
+                    .get(&format!("{name}@{version}"))
+                    .cloned()
+            })
             .collect()
     };
 
