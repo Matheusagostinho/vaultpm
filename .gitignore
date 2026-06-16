@@ -19,6 +19,7 @@ npm/platforms/*/vt
 # Per-folder context files for AI agents (kept local, not published)
 CLAUDE.md
 **/CLAUDE.md
+claude.md
 
 # OS / editor noise
 .DS_Store
