@@ -83,24 +83,27 @@ The full plan from today's alpha to a **genuinely functional and distributable**
 - [x] Resolved dependency graph recorded in `vault.lock`
 - [ ] Full **PubGrub** backtracking to minimise duplicate versions when ranges
       overlap (optimisation; npm's multi-version model makes this lower-priority)
+- [x] **npm alias dependencies** (`"x": "npm:y@^1"`) — unblocks express/rimraf trees
+- [x] **Optional dependency** traversal (best-effort, skip on failure)
+- [x] **`.bin/` linking** for package executables (top-level + per-package)
+- [ ] **Concurrent graph resolution** (top perf win — see BENCHMARKS.md)
 - [ ] Peer-dependency resolution + warnings
-- [ ] Optional / bundled dependency semantics (currently follows `dependencies`)
-- [ ] `.bin/` linking for package executables
 - [ ] **Lockfile-driven installs** (respect existing `vault.lock`; `--frozen-lockfile`)
 - [ ] Workspaces / monorepo support (`workspaces` field, filtering)
 - [ ] Sandboxed execution of trusted lifecycle scripts during install (Phase 3 sandbox is ready)
 - [ ] Store garbage collection (`vault store prune`) + offline mode
 - [ ] Download resume/retry, integrity-failure quarantine
-- [ ] Benchmarks vs npm / pnpm / bun (cold + warm cache)
+- [x] **Benchmarks** vs npm / pnpm (cold + warm) — `benchmarks/bench.sh` + BENCHMARKS.md
 
 ## Phase 5 — Distribution & platforms
 
 - [x] npm package `vaultpm` via **optionalDependencies** (zero install scripts)
-- [x] `curl | sh` installer (`install.sh`)
-- [x] GitHub Actions **CI** (fmt + clippy + test on Linux/macOS/Windows)
-- [x] GitHub Actions **Release** pipeline (build matrix → tarballs + npm publish)
-- [x] `build-npm-packages.mjs` to assemble per-platform packages in CI
-- [ ] Reserve npm org `@vaultpm` and publish the first `0.1.0` release
+- [x] **Published to npm** — `npm install -g vaultpm` (+ 5 `@vaultpm/*` platform pkgs)
+- [x] `curl | sh` installer + **GitHub Release v0.1.0** with binaries
+- [x] GitHub Actions **CI** (fmt + clippy + test on Linux/macOS/Windows) — green
+- [x] GitHub Actions **Release** pipeline (build matrix → tarballs + idempotent npm publish)
+- [x] **Shell completions** (`vault completions bash|zsh|fish|powershell`)
+- [x] **Landing page** (GitHub Pages, `docs/`)
 - [ ] Publish `vault-core` + `vault-cli` to **crates.io**
 - [ ] **Windows support** 🪟
   - [ ] Verify build on `x86_64-pc-windows-msvc` in CI (matrix already present)
@@ -109,9 +112,9 @@ The full plan from today's alpha to a **genuinely functional and distributable**
   - [ ] `.cmd` / `.ps1` bin shims; junctions instead of symlinks where needed
   - [ ] `aarch64-pc-windows-msvc` (ARM) target + `@vaultpm/win32-arm64`
   - [ ] `.zip` release asset wired into a `install.ps1` PowerShell installer
-- [ ] Verify Linux `aarch64` cross-build end-to-end
+- [x] Linux `aarch64` cross-build in the release matrix
 - [ ] Homebrew tap (`brew install vault`)
-- [ ] Shell completions (zsh/bash/fish) + man pages
+- [ ] man pages
 - [ ] **Dogfood:** sign Vault's own releases with SLSA/Sigstore provenance
 
 ## Phase 6 — DX & community
