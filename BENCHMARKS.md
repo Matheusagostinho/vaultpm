@@ -20,9 +20,12 @@ business asking you to trust it.
 
 | Tool  | Cold cache | Warm cache | packages | Notes |
 |-------|-----------:|-----------:|---------:|-------|
-| **vault** | 4.9s | **1.55s** 🥇 | 156 | **+ live CVE/typosquat/maintainer audit** |
-| pnpm  | 2.5s | 2.08s | 153 | hard-link store, concurrent |
-| npm   | 7.1s | 2.78s | 169 | flat node_modules |
+| **vault** | 5.3s | **1.25s** 🥇 | 156 | **+ live CVE/typosquat/maintainer audit** |
+| pnpm  | 2.5s | 2.1s | 153 | hard-link store, concurrent |
+| npm   | 7.4s | 3.0s | 169 | flat node_modules |
+
+> Warm-cache install is the everyday case. Vault is **~2× faster than pnpm**
+> there — *and* it audits every dependency. Cold installs still trail pnpm.
 
 ## Reading these honestly
 
@@ -43,11 +46,13 @@ audits to win a benchmark.
 
 ## What we're optimising next (tracked in [ROADMAP.md](./ROADMAP.md))
 
-- [x] **Concurrent graph resolution** — done; warm installs now beat pnpm.
-- [ ] **On-disk metadata cache** with ETag revalidation — cut cold-cache time.
+- [x] **Concurrent graph resolution** — warm installs now beat pnpm.
+- [x] **On-disk packument cache** with ETag revalidation — warm runs revalidate
+      with cheap `304`s instead of re-downloading metadata, and metadata is
+      reused across projects (kept in `~/.vault/cache`, separate from the store).
 - [ ] Reuse `vault.lock` to skip resolution entirely on unchanged installs
       (`--frozen-lockfile`).
-- [ ] Stream-extract tarballs while downloading.
+- [ ] Stream-extract tarballs while downloading (cold-cache win).
 
 ## Where Vault already wins
 

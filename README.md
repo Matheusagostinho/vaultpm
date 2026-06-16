@@ -74,6 +74,29 @@ ship only passive defenses.
 > analysis — CVE + static scan + Landlock sandbox — is built into the installer
 > itself, offline-capable, in a single binary.)*
 
+## Performance
+
+Security usually means "slower". Vault refuses that trade-off. On a **warm cache**
+— the everyday "I deleted `node_modules`" case — Vault installs **~2× faster than
+pnpm**, *while auditing every dependency* for CVEs, typosquats and maintainer
+takeovers that npm and pnpm never check.
+
+| Tool | Cold cache | Warm cache | audits deps? |
+|---|---:|---:|:--:|
+| **vault** | 5.3s | **1.25s** 🥇 | ✅ |
+| pnpm | 2.5s | 2.1s | ❌ |
+| npm | 7.4s | 3.0s | ❌ |
+
+<sup>Median of 3 runs, ~150-package tree, scripts disabled for all tools. Cold
+installs still trail pnpm while we add streaming extraction. Reproduce it
+yourself: [`benchmarks/bench.sh`](./benchmarks/bench.sh) · full methodology in
+[BENCHMARKS.md](./BENCHMARKS.md).</sup>
+
+How: a **concurrent, level-ordered resolver** (the whole dependency frontier is
+fetched in parallel, deduplicated by a singleflight cache), a **content-addressable
+store** with hard links (pnpm-style disk dedup), and an **on-disk metadata cache**
+that revalidates with cheap ETag `304`s.
+
 ---
 
 ## Install

@@ -61,6 +61,7 @@
     <div class="brand"><span class="lock">🔒</span> Vault</div>
     <nav>
       <a href="#features">Recursos</a>
+      <a href="#perf">Velocidade</a>
       <a href="#compare">Comparativo</a>
       <a href="https://github.com/Matheusagostinho/vaultpm">GitHub</a>
       <a href="../">🇬🇧 EN</a>
@@ -119,6 +120,22 @@
     </table>
     <p class="note">O Vault é o primeiro gerenciador de pacotes nativo open-source onde a análise de
       segurança está embutida no próprio instalador. Veja os <a href="https://github.com/Matheusagostinho/vaultpm/blob/main/BENCHMARKS.md">benchmarks honestos</a>.</p>
+  </div>
+</section>
+
+<section id="perf">
+  <div class="wrap">
+    <h2>Rápido <em>e</em> seguro</h2>
+    <p class="lead">Segurança costuma significar "mais lento". O Vault recusa esse trade-off — no cache quente ele instala <strong>~2× mais rápido que o pnpm</strong>, auditando cada dependência.</p>
+    <table>
+      <tr><th>Gerenciador</th><th>Cache frio</th><th>Cache quente</th><th>Audita deps?</th></tr>
+      <tr><td><strong>vault</strong></td><td>5,3s</td><td class="y">1,25s 🥇</td><td class="y">✓</td></tr>
+      <tr><td>pnpm</td><td class="y">2,5s</td><td>2,1s</td><td class="n">✗</td></tr>
+      <tr><td>npm</td><td>7,4s</td><td>3,0s</td><td class="n">✗</td></tr>
+    </table>
+    <p class="note">Mediana de 3 execuções · árvore de ~150 pacotes · scripts desativados em todos.
+      Instalações frias ainda ficam atrás do pnpm (extração via streaming a caminho). Reproduza:
+      <a href="https://github.com/Matheusagostinho/vaultpm/blob/main/BENCHMARKS.md">BENCHMARKS.md</a>.</p>
   </div>
 </section>
 

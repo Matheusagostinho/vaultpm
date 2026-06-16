@@ -43,7 +43,7 @@ bench_tool() {
   case "$name" in
     npm)   npm cache clean --force >/dev/null 2>&1 || true ;;
     pnpm)  pnpm store prune >/dev/null 2>&1 || true ;;
-    vault) rm -rf "$HOME/.vault/store" ;;
+    vault) rm -rf "$HOME/.vault/store" "$HOME/.vault/cache" ;;
   esac
   clean
   COLD[$name]=$(time_cmd "${install_cmd[@]}")
