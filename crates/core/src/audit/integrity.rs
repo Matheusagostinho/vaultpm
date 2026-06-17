@@ -21,11 +21,27 @@ pub fn verify(
     integrity: Option<&str>,
     shasum: Option<&str>,
 ) -> Result<()> {
+    let sha512 = Sha512::digest(bytes);
+    let sha1 = Sha1::digest(bytes);
+    verify_precomputed(name, version, &sha512, &sha1, integrity, shasum)
+}
+
+/// Like [`verify`] but for digests already computed while streaming the tarball
+/// to disk — so we never have to hold the whole `.tgz` in memory. The check is
+/// still **fail-closed and happens before extraction**.
+pub fn verify_precomputed(
+    name: &str,
+    version: &str,
+    sha512: &[u8],
+    sha1: &[u8],
+    integrity: Option<&str>,
+    shasum: Option<&str>,
+) -> Result<()> {
     if let Some(sri) = integrity {
-        return verify_sri(name, version, bytes, sri);
+        return verify_sri(name, version, sha512, sri);
     }
     if let Some(sha1_hex) = shasum {
-        let actual = hex::encode(Sha1::digest(bytes));
+        let actual = hex::encode(sha1);
         if actual.eq_ignore_ascii_case(sha1_hex) {
             return Ok(());
         }
@@ -44,7 +60,8 @@ pub fn verify(
     })
 }
 
-fn verify_sri(name: &str, version: &str, bytes: &[u8], sri: &str) -> Result<()> {
+/// Compare a precomputed SHA-512 digest against an SRI string (`sha512-<b64>`).
+fn verify_sri(name: &str, version: &str, sha512: &[u8], sri: &str) -> Result<()> {
     // Take the first algorithm token (`sha512-...`); npm always emits sha512.
     let token = sri.split_whitespace().next().unwrap_or(sri);
     let (algo, b64) = token.split_once('-').ok_or_else(|| VaultError::Integrity {
@@ -63,20 +80,16 @@ fn verify_sri(name: &str, version: &str, bytes: &[u8], sri: &str) -> Result<()> 
             actual: "<invalid base64 in SRI>".into(),
         })?;
 
-    let actual = match algo {
-        "sha512" => Sha512::digest(bytes).to_vec(),
-        // We could support sha256/sha384 here; npm uses sha512 in practice.
-        other => {
-            return Err(VaultError::Integrity {
-                name: name.into(),
-                version: version.into(),
-                expected: format!("unsupported integrity algorithm `{other}`"),
-                actual: "<none>".into(),
-            })
-        }
-    };
+    if algo != "sha512" {
+        return Err(VaultError::Integrity {
+            name: name.into(),
+            version: version.into(),
+            expected: format!("unsupported integrity algorithm `{algo}`"),
+            actual: "<none>".into(),
+        });
+    }
 
-    if actual == expected {
+    if sha512 == expected.as_slice() {
         Ok(())
     } else {
         Err(VaultError::Integrity {
@@ -85,7 +98,7 @@ fn verify_sri(name: &str, version: &str, bytes: &[u8], sri: &str) -> Result<()> 
             expected: sri.into(),
             actual: format!(
                 "sha512-{}",
-                base64::engine::general_purpose::STANDARD.encode(&actual)
+                base64::engine::general_purpose::STANDARD.encode(sha512)
             ),
         })
     }

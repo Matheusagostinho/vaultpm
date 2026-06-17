@@ -126,15 +126,15 @@
 <section id="perf">
   <div class="wrap">
     <h2>Fast <em>and</em> safe</h2>
-    <p class="lead">Security usually means "slower". Vault refuses the trade-off — it's the <strong>fastest of the three on both cold and warm caches</strong>, while auditing every dependency.</p>
+    <p class="lead">Security usually means "slower". Vault refuses the trade-off — on a warm cache it's <strong>~2× faster than pnpm</strong> (and level with it cold), while auditing every dependency.</p>
     <table>
       <tr><th>Package manager</th><th>Cold cache</th><th>Warm cache</th><th>Audits deps?</th></tr>
-      <tr><td><strong>vault</strong></td><td class="y">3.2s 🥇</td><td class="y">2.0s 🥇</td><td class="y">✓</td></tr>
-      <tr><td>pnpm</td><td>3.8s</td><td>3.1s</td><td class="n">✗</td></tr>
-      <tr><td>npm</td><td>9.2s</td><td>5.2s</td><td class="n">✗</td></tr>
+      <tr><td><strong>vault</strong></td><td>3.7s</td><td class="y">1.3s 🥇</td><td class="y">✓</td></tr>
+      <tr><td>pnpm</td><td>2.8s</td><td>2.1s</td><td class="n">✗</td></tr>
+      <tr><td>npm</td><td>8.0s</td><td>3.5s</td><td class="n">✗</td></tr>
     </table>
     <p class="note">One back-to-back run · ~150-package tree · scripts disabled for all tools.
-      Absolute times vary with network; the ordering is stable. Reproduce it:
+      Times vary with network; cold ordering vs pnpm flips run-to-run. Reproduce it:
       <a href="https://github.com/Matheusagostinho/vaultpm/blob/main/BENCHMARKS.md">BENCHMARKS.md</a>.</p>
   </div>
 </section>

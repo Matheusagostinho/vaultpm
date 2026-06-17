@@ -126,15 +126,15 @@
 <section id="perf">
   <div class="wrap">
     <h2>Rápido <em>e</em> seguro</h2>
-    <p class="lead">Segurança costuma significar "mais lento". O Vault recusa esse trade-off — é o <strong>mais rápido dos três no cache frio E quente</strong>, auditando cada dependência.</p>
+    <p class="lead">Segurança costuma significar "mais lento". O Vault recusa esse trade-off — no cache quente é <strong>~2× mais rápido que o pnpm</strong> (e empata no frio), auditando cada dependência.</p>
     <table>
       <tr><th>Gerenciador</th><th>Cache frio</th><th>Cache quente</th><th>Audita deps?</th></tr>
-      <tr><td><strong>vault</strong></td><td class="y">3,2s 🥇</td><td class="y">2,0s 🥇</td><td class="y">✓</td></tr>
-      <tr><td>pnpm</td><td>3,8s</td><td>3,1s</td><td class="n">✗</td></tr>
-      <tr><td>npm</td><td>9,2s</td><td>5,2s</td><td class="n">✗</td></tr>
+      <tr><td><strong>vault</strong></td><td>3,7s</td><td class="y">1,3s 🥇</td><td class="y">✓</td></tr>
+      <tr><td>pnpm</td><td>2,8s</td><td>2,1s</td><td class="n">✗</td></tr>
+      <tr><td>npm</td><td>8,0s</td><td>3,5s</td><td class="n">✗</td></tr>
     </table>
     <p class="note">Uma execução back-to-back · árvore de ~150 pacotes · scripts desativados em todos.
-      Tempos absolutos variam com a rede; a ordem é estável. Reproduza:
+      Tempos variam com a rede; a ordem no frio vs pnpm muda entre execuções. Reproduza:
       <a href="https://github.com/Matheusagostinho/vaultpm/blob/main/BENCHMARKS.md">BENCHMARKS.md</a>.</p>
   </div>
 </section>

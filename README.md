@@ -19,9 +19,10 @@ file is extracted.**
 > resolver + pnpm-style isolated `node_modules`**, the OSV CVE gate,
 > obfuscation-resistant script analysis, maintainer-takeover + typosquat signals,
 > `.bin` linking, npm aliases, and a real **Landlock sandbox** for `vault run`.
-> It already installs **faster than pnpm on both cold and warm caches** *while*
-> auditing every dependency — see the honest [benchmarks](./BENCHMARKS.md). Don't
-> use it as your only package manager in production yet — but please try it and
+> On a **warm cache it installs ~2× faster than pnpm** (and is level with pnpm
+> cold) *while* auditing every dependency — see the honest
+> [benchmarks](./BENCHMARKS.md). Don't use it as your only package manager in
+> production yet — but please try it and
 > [file issues](https://github.com/Matheusagostinho/vaultpm/issues).
 >
 > 🌐 **Website:** https://matheusagostinho.github.io/vaultpm/ · 🔐 [Security policy](./SECURITY.md)
@@ -76,27 +77,28 @@ ship only passive defenses.
 
 ## Performance
 
-Security usually means "slower". Vault refuses that trade-off — it's the
-**fastest of the three on both cold and warm caches**, *while auditing every
-dependency* for CVEs, typosquats and maintainer takeovers that npm and pnpm
-never check.
+Security usually means "slower". Vault refuses that trade-off. On a **warm cache
+— the everyday case — it's ~2× faster than pnpm**, and on a cold cache it's
+**neck-and-neck with pnpm**, all *while auditing every dependency* for CVEs,
+typosquats and maintainer takeovers that npm and pnpm never check.
 
 | Tool | Cold cache | Warm cache | audits deps? |
 |---|---:|---:|:--:|
-| **vault** | **3.2s** 🥇 | **2.0s** 🥇 | ✅ |
-| pnpm | 3.8s | 3.1s | ❌ |
-| npm | 9.2s | 5.2s | ❌ |
+| **vault** | 3.7s | **1.3s** 🥇 | ✅ |
+| pnpm | 2.8s | 2.1s | ❌ |
+| npm | 8.0s | 3.5s | ❌ |
 
 <sup>One back-to-back run (all tools, same network), ~150-package tree, scripts
-disabled for all. Absolute times vary with network — the ordering is stable
-across runs. Reproduce it: [`benchmarks/bench.sh`](./benchmarks/bench.sh) · full
+disabled for all. Absolute times vary with network; cold ordering vs pnpm flips
+run-to-run. Reproduce it: [`benchmarks/bench.sh`](./benchmarks/bench.sh) · full
 methodology in [BENCHMARKS.md](./BENCHMARKS.md).</sup>
 
 How: a **concurrent, level-ordered resolver** (the whole dependency frontier
 fetched in parallel, deduplicated by a singleflight cache), a **batched OSV CVE
-lookup** (one request for the whole tree), **off-thread tarball extraction**, a
-**content-addressable store** with hard links, and an **on-disk metadata cache**
-that revalidates with cheap ETag `304`s.
+lookup** (one request for the whole tree), **streaming downloads** (hashed and
+verified before extraction, never fully buffered), **off-thread tarball
+extraction**, a **content-addressable store** with hard links, and an **on-disk
+metadata cache** that revalidates with cheap ETag `304`s.
 
 ---
 

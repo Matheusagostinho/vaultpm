@@ -201,8 +201,9 @@ impl Registry {
         Ok(Arc::new(packument))
     }
 
-    /// Download a tarball and return its raw bytes.
-    pub async fn download_tarball(&self, url: &str) -> Result<bytes::Bytes> {
+    /// Start a tarball download, returning the streaming HTTP response so the
+    /// caller can pipe the body to disk while hashing (no full in-memory copy).
+    pub async fn tarball_response(&self, url: &str) -> Result<reqwest::Response> {
         tracing::debug!("GET tarball {url}");
         let resp = self.client.get(url).send().await?;
         if !resp.status().is_success() {
@@ -211,7 +212,7 @@ impl Registry {
                 reason: format!("tarball download returned HTTP {}", resp.status()),
             });
         }
-        Ok(resp.bytes().await?)
+        Ok(resp)
     }
 }
 

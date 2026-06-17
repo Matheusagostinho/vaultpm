@@ -59,6 +59,17 @@ impl Store {
         &self.root
     }
 
+    /// A unique temp file path under the store (same filesystem as the CAS, so
+    /// streamed downloads stay local). The caller is responsible for cleanup.
+    pub fn new_temp_path(&self) -> Result<PathBuf> {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let dir = self.root.join(STORE_VERSION).join("tmp");
+        std::fs::create_dir_all(&dir)?;
+        let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+        Ok(dir.join(format!("dl-{}-{n}.tgz", std::process::id())))
+    }
+
     fn files_dir(&self) -> PathBuf {
         self.root.join(STORE_VERSION).join("files")
     }
@@ -126,10 +137,23 @@ impl Store {
             if let Some(parent) = dest.parent() {
                 std::fs::create_dir_all(parent)?;
             }
-            // Write to a temp file then rename for atomicity.
-            let tmp = dest.with_extension("tmp");
+            // Write to a **uniquely-named** temp file then atomically rename it
+            // into place. The unique name is essential: many packages contain
+            // byte-identical files (same hash), and parallel extraction would
+            // otherwise race on a shared `<hash>.tmp`. If another thread wins
+            // the race the rename simply replaces an identical object.
+            use std::sync::atomic::{AtomicU64, Ordering};
+            static SEQ: AtomicU64 = AtomicU64::new(0);
+            let tmp = dest.with_extension(format!(
+                "tmp-{}-{}",
+                std::process::id(),
+                SEQ.fetch_add(1, Ordering::Relaxed)
+            ));
             std::fs::write(&tmp, bytes)?;
-            std::fs::rename(&tmp, &dest)?;
+            if std::fs::rename(&tmp, &dest).is_err() {
+                // Another writer placed the (identical) object first.
+                let _ = std::fs::remove_file(&tmp);
+            }
         }
         Ok(hash)
     }

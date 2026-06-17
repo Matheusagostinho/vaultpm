@@ -18,25 +18,27 @@ business asking you to trust it.
 
 ## Results (median of 3 runs)
 
-A single back-to-back run (all three tools, same network), representative of
-several:
+A back-to-back run (all three tools, same network), representative of several:
 
 | Tool  | Cold cache | Warm cache | packages | Notes |
 |-------|-----------:|-----------:|---------:|-------|
-| **vault** | **3.2s** 🥇 | **2.0s** 🥇 | 156 | **+ live CVE/typosquat/maintainer audit** |
-| pnpm  | 3.8s | 3.1s | 153 | hard-link store, concurrent |
-| npm   | 9.2s | 5.2s | 169 | flat node_modules |
+| **vault** | 3.7s | **1.3s** 🥇 | 156 | **+ live CVE/typosquat/maintainer audit** |
+| pnpm  | 2.8s | 2.1s | 153 | hard-link store, concurrent |
+| npm   | 8.0s | 3.5s | 169 | flat node_modules |
 
-> Absolute times vary with network conditions, so what matters is the
-> **back-to-back ordering** — and across repeated runs Vault is consistently the
-> fastest of the three on **both** cold and warm, **while** auditing every
-> dependency for CVEs, typosquats and maintainer takeovers that npm and pnpm
-> never check.
+> **Warm cache (the everyday case): Vault is the fastest, by ~2×** — *while*
+> auditing every dependency for CVEs, typosquats and maintainer takeovers that
+> npm and pnpm never check.
+>
+> **Cold cache: Vault is neck-and-neck with pnpm** (both ~3s; which wins flips
+> with network conditions) and ~2× faster than npm. Absolute times vary, so the
+> back-to-back ordering is what matters.
 
 ## Reading these honestly
 
-**Vault now leads on both cold and warm caches — while doing strictly more work
-than npm or pnpm** (a full CVE + typosquat + maintainer audit of every package).
+**On warm caches Vault is the fastest of the three by ~2×, and on cold caches it
+is neck-and-neck with pnpm — all while doing strictly more work** (a full CVE +
+typosquat + maintainer audit of every package) than npm or pnpm.
 
 How we got here without weakening security:
 
@@ -46,21 +48,26 @@ How we got here without weakening security:
   `querybatch` request covers the whole tree; full advisory detail is fetched
   only for the (rare) packages that actually have vulnerabilities. Same
   coverage, ~136 round-trips collapse to ~1.
-- **Off-thread extraction** — integrity check + gunzip/untar run on a blocking
-  pool, so dozens of tarballs verify and extract in true parallel.
+- **Streaming downloads** — each tarball is streamed to a temp file while its
+  SHA-512 is computed incrementally, then verified **before** extraction. We
+  never hold a whole `.tgz` in memory, so high concurrency stays safe.
+- **Off-thread extraction** — gunzip/untar runs on a blocking pool, so dozens of
+  tarballs extract in true parallel.
 - **On-disk metadata cache** — ETag `304`s instead of re-downloading packuments.
 
-None of these skip a security check; they remove waiting, not auditing.
+None of these skip a security check; integrity is still verified before any file
+is extracted. They remove waiting, not auditing.
 
 ## What we're optimising next (tracked in [ROADMAP.md](./ROADMAP.md))
 
 - [x] **Concurrent graph resolution** + singleflight cache.
 - [x] **On-disk packument cache** with ETag revalidation.
 - [x] **Batched OSV CVE lookup** — one request for the whole tree.
-- [x] **Off-thread (spawn_blocking) extraction** — parallel verify + untar.
+- [x] **Off-thread (spawn_blocking) extraction** — parallel untar.
+- [x] **Streaming downloads** — hash-on-the-fly to a temp file, verify before
+      extract, never buffer the whole tarball in memory.
 - [ ] Reuse `vault.lock` to skip resolution entirely on unchanged installs
-      (`--frozen-lockfile`).
-- [ ] Stream tarball bytes straight into the extractor (further cold win).
+      (`--frozen-lockfile`) — would make cold-with-lockfile near-instant.
 
 ## Where Vault already wins
 
@@ -71,6 +78,6 @@ None of these skip a security check; they remove waiting, not auditing.
   critical CVE, a credential-stealing `postinstall`, or a freshly-hijacked
   maintainer. Vault does, before a byte is extracted.
 
-> **Bottom line:** Vault is now the fastest of the three on both cold and warm
-> caches *and* the only one auditing your dependencies — speed and security, no
-> trade-off.
+> **Bottom line:** on warm caches Vault is the fastest by ~2×, on cold it's level
+> with pnpm — *and* it's the only one auditing your dependencies. You stop paying
+> for security with speed.
