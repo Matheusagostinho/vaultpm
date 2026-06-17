@@ -232,7 +232,9 @@ crates/
         └── typosquat    look-alike package detection
 ```
 
-See [ROADMAP.md](./ROADMAP.md) for the full plan to a 1.0 release.
+See [ROADMAP.md](./ROADMAP.md) for the phased plan to 1.0, and
+[NEXT-STEPS.md](./NEXT-STEPS.md) for the prioritized engineering plan along three
+axes — **robustness, effectiveness (security/correctness), and speed**.
 
 ---
 
