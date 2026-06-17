@@ -267,8 +267,12 @@ fn classify_severity(v: &OsvVuln) -> String {
     "unknown".to_string()
 }
 
-/// Extract the numeric base score from a CVSS vector string if it embeds one,
-/// otherwise try to parse the whole string as a number.
+/// Parse a base score from OSV's `severity.score`. OSV usually stores a CVSS
+/// *vector* (`CVSS:3.1/AV:N/...`), which does not embed the numeric score, so we
+/// only succeed when the field is a plain number. Computing a base score from a
+/// vector is a follow-up (see NEXT-STEPS); in practice GHSA advisories carry a
+/// textual severity which `classify_severity` reads first, and `--strict` blocks
+/// any advisory regardless of computed severity.
 fn cvss_base_score(score: &str) -> Option<f32> {
     score.parse::<f32>().ok()
 }

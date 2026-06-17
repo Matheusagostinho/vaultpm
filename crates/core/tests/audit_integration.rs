@@ -22,6 +22,7 @@ fn package_with_postinstall(name: &str, script: Option<&str>) -> VersionMeta {
         version: "1.0.0".to_string(),
         dependencies: HashMap::new(),
         optional_dependencies: HashMap::new(),
+        peer_dependencies: HashMap::new(),
         scripts,
         dist: Dist {
             tarball: "https://example.test/x.tgz".to_string(),

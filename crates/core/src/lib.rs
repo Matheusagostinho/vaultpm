@@ -162,8 +162,12 @@ pub async fn install(opts: &InstallOptions) -> Result<InstallSummary> {
     for msg in reputation_all(&registry, &http, &cfg, &store, &resolution).await {
         summary.warnings.push(msg);
     }
+    // 2c. Unmet peer dependency warnings (advisory only).
+    for msg in resolver::check_peers(&resolution) {
+        summary.warnings.push(msg);
+    }
 
-    // 2c. In strict mode, any advisory (not just critical) is a block.
+    // 2d. In strict mode, any advisory (not just critical) is a block.
     if opts.strict && summary.advisories > 0 {
         summary.blocked.push(format!(
             "{} advisory/ies present and --strict is set",

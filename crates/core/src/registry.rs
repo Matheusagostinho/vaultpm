@@ -57,6 +57,8 @@ pub struct VersionMeta {
     pub dependencies: HashMap<String, String>,
     #[serde(default, rename = "optionalDependencies")]
     pub optional_dependencies: HashMap<String, String>,
+    #[serde(default, rename = "peerDependencies")]
+    pub peer_dependencies: HashMap<String, String>,
     #[serde(default)]
     pub scripts: HashMap<String, String>,
     pub dist: Dist,

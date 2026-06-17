@@ -34,7 +34,7 @@ Make Vault behave correctly under failure, concurrency and weird environments.
 | Priority | Item | Impact | Effort | Notes |
 |---|---|:--:|:--:|---|
 | ✅ P0 | **Download retries with exponential backoff** for connection/timeout errors, `429` and `5xx` | 🔥 | ◐ | **Done** for packument + tarball requests. |
-| 🔜 P0 | **Store lock file** — guard `~/.vault/store` against two concurrent `vault` processes corrupting it | 🔥 | ◐ | Advisory lock + atomic writes (CAS already uses unique-temp + rename). |
+| 🔜 P0 | **Store lock file** — guard against `prune` racing a concurrent install | ◐ | ◐ | Partly mitigated: CAS uses unique-temp + atomic rename, and `prune` now skips objects modified in the last 60s. A shared/exclusive lock (fs4) is the full fix. |
 | 🔜 P1 | **`vault store verify` / self-heal** — detect and re-fetch CAS objects whose content no longer matches their hash | ◐ | ◐ | Recovers from disk corruption; deepens trust in the store. |
 | 🔜 P1 | **Windows parity** — junctions instead of symlinks, `.cmd`/`.ps1` bin shims, reserved-name + long-path handling, `install.ps1` | 🔥 | 🔥 | Binaries already build on Windows; the linker/sandbox paths need work. |
 | ⏳ P1 | **Fuzz the tarball extractor + packument parser** (`cargo-fuzz`) | ◐ | ◐ | They parse untrusted input — the highest-value fuzz targets. |
@@ -48,7 +48,7 @@ Close the remaining gaps in *what* Vault catches and *how correctly* it installs
 
 | Priority | Item | Impact | Effort | Notes |
 |---|---|:--:|:--:|---|
-| 🔜 P0 | **Peer-dependency resolution + warnings** | 🔥 | ◐ | Real-world trees rely on peers; today they're ignored. |
+| ✅ P0 | **Peer-dependency warnings** — warn on unmet/mismatched peers (advisory, npm semantics) | 🔥 | ◐ | **Done.** Full peer *resolution* (auto-installing) is a later step. |
 | 🔜 P0 | **Sigstore provenance verification** + `require_provenance` / `--strict` | 🔥 | ◐ | Closes the "compromised registry/CDN" gap — verify the package was built from the claimed source, not just that bytes match a hash the registry served. |
 | 🔜 P1 | **`swc` AST static analysis** of lifecycle scripts | 🔥 | 🔥 | Resists data-flow obfuscation that the current normalized-pattern scan can't see. Keep the `Finding`/`Severity` API stable. |
 | 🔜 P1 | **Landlock network restriction (ABI v4, kernel ≥ 6.7)** for sandboxed scripts | ◐ | ◐ | Deny outbound sockets, not just filesystem — stops exfiltration even by an allowed script. |

@@ -58,18 +58,19 @@ pub async fn ensure_in_store(
     let store_for_extract = store.clone();
     let pkg_clone = pkg.clone();
     let tmp_for_extract = tmp.clone();
-    let index = tokio::task::spawn_blocking(move || -> Result<PackageIndex> {
+    let join = tokio::task::spawn_blocking(move || -> Result<PackageIndex> {
         let file = std::fs::File::open(&tmp_for_extract)?;
         extract_to_store(&store_for_extract, &pkg_clone, file)
     })
-    .await
-    .map_err(|e| VaultError::Resolution {
+    .await;
+
+    // Always remove the temp tarball, regardless of how extraction ended.
+    let _ = std::fs::remove_file(&tmp);
+
+    let index = join.map_err(|e| VaultError::Resolution {
         name: pkg.id(),
         reason: format!("extraction task failed: {e}"),
-    })?;
-
-    let _ = std::fs::remove_file(&tmp);
-    let index = index?;
+    })??;
     store.write_index(&index)?;
     Ok(true)
 }

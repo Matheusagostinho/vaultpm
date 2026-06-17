@@ -23,6 +23,12 @@ impl PackageJson {
             .map_err(|e| VaultError::PackageJson(format!("{}: {e}", path.display())))?;
         let raw: Value = serde_json::from_str(&text)
             .map_err(|e| VaultError::PackageJson(format!("{}: {e}", path.display())))?;
+        if !raw.is_object() {
+            return Err(VaultError::PackageJson(format!(
+                "{}: top-level value must be a JSON object",
+                path.display()
+            )));
+        }
         Ok(Self { path, raw })
     }
 

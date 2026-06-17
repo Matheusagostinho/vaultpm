@@ -184,7 +184,11 @@ impl Store {
             }
         }
 
-        // Walk the CAS and remove any object not in the referenced set.
+        // Walk the CAS and remove any object not in the referenced set. Objects
+        // modified within a short grace window are skipped, so we don't delete a
+        // file a concurrent install just wrote but hasn't linked yet.
+        const GRACE: std::time::Duration = std::time::Duration::from_secs(60);
+        let now = std::time::SystemTime::now();
         let mut removed = 0usize;
         let mut freed = 0u64;
         let files_dir = self.files_dir();
@@ -197,12 +201,22 @@ impl Store {
                 if let Ok(objects) = std::fs::read_dir(shard.path()) {
                     for obj in objects.flatten() {
                         let hash = format!("{shard_str}{}", obj.file_name().to_string_lossy());
-                        if !referenced.contains(&hash) {
-                            let len = obj.metadata().map(|m| m.len()).unwrap_or(0);
-                            if std::fs::remove_file(obj.path()).is_ok() {
-                                removed += 1;
-                                freed += len;
+                        if referenced.contains(&hash) {
+                            continue;
+                        }
+                        let meta = match obj.metadata() {
+                            Ok(m) => m,
+                            Err(_) => continue,
+                        };
+                        // Skip recently-written objects (concurrency safety).
+                        if let Ok(modified) = meta.modified() {
+                            if now.duration_since(modified).unwrap_or(GRACE) < GRACE {
+                                continue;
                             }
+                        }
+                        if std::fs::remove_file(obj.path()).is_ok() {
+                            removed += 1;
+                            freed += meta.len();
                         }
                     }
                 }

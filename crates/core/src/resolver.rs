@@ -248,6 +248,42 @@ async fn insert_node(
     Ok(())
 }
 
+/// Warn about unmet peer dependencies. A peer is "met" when *some* resolved
+/// package of that name satisfies the declared range. Warning-only (npm
+/// semantics): peers don't block, they advise. Exotic ranges are skipped.
+pub fn check_peers(resolution: &Resolution) -> Vec<String> {
+    use node_semver::{Range, Version};
+    let mut present: BTreeMap<&str, Vec<Version>> = BTreeMap::new();
+    for pkg in resolution.packages.values() {
+        if let Ok(v) = Version::parse(&pkg.version) {
+            present.entry(pkg.name.as_str()).or_default().push(v);
+        }
+    }
+
+    let mut warnings = Vec::new();
+    for pkg in resolution.packages.values() {
+        for (peer, range) in &pkg.meta.peer_dependencies {
+            let Ok(req) = Range::parse(range) else {
+                continue;
+            };
+            match present.get(peer.as_str()) {
+                Some(versions) if versions.iter().any(|v| req.satisfies(v)) => {}
+                Some(_) => warnings.push(format!(
+                    "unmet peer dependency: {}@{} wants {peer}@{range}, but a different version is installed",
+                    pkg.name, pkg.version
+                )),
+                None => warnings.push(format!(
+                    "unmet peer dependency: {}@{} wants {peer}@{range} (not installed)",
+                    pkg.name, pkg.version
+                )),
+            }
+        }
+    }
+    warnings.sort();
+    warnings.dedup();
+    warnings
+}
+
 /// Choose the highest version satisfying `range_str`. Dist-tags such as
 /// `latest` are honoured, as is an exact-version request.
 fn pick_version(name: &str, range_str: &str, packument: &Packument) -> Result<String> {
@@ -336,6 +372,7 @@ mod tests {
                     version: v.into(),
                     dependencies: Default::default(),
                     optional_dependencies: Default::default(),
+                    peer_dependencies: Default::default(),
                     scripts: Default::default(),
                     dist: Dist {
                         tarball: String::new(),

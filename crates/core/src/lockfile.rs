@@ -152,6 +152,7 @@ impl Lockfile {
                 version: version.to_string(),
                 dependencies: HashMap::new(),
                 optional_dependencies: HashMap::new(),
+                peer_dependencies: HashMap::new(),
                 scripts: locked.scripts.clone().into_iter().collect(),
                 dist: Dist {
                     tarball: locked.resolved.clone(),
