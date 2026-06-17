@@ -9,9 +9,14 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::{Mutex, OnceCell};
 
 const DEFAULT_REGISTRY: &str = "https://registry.npmjs.org";
+/// How many times to retry a request on a transient (network / 5xx / 429) error.
+const MAX_ATTEMPTS: u32 = 3;
+/// Initial backoff between retries (doubles each attempt).
+const BACKOFF_BASE: Duration = Duration::from_millis(250);
 
 /// Singleflight cache: each package name maps to a cell that resolves to its
 /// packument exactly once, shared across concurrent callers.
@@ -118,6 +123,44 @@ impl Registry {
         Ok(packument.clone())
     }
 
+    /// Send a request, retrying transient failures (connection/timeout errors,
+    /// HTTP 429, and 5xx) with exponential backoff. Non-retryable responses
+    /// (2xx, 304, 4xx like 404) are returned as-is for the caller to handle.
+    async fn send_with_retry(&self, req: reqwest::RequestBuilder) -> Result<reqwest::Response> {
+        let mut delay = BACKOFF_BASE;
+        let mut last: String = "no attempts".into();
+        for attempt in 1..=MAX_ATTEMPTS {
+            let attempt_req = match req.try_clone() {
+                Some(r) => r,
+                // Bodyless GETs always clone; if not, just send once.
+                None => return Ok(req.send().await?),
+            };
+            match attempt_req.send().await {
+                Ok(resp) => {
+                    let status = resp.status();
+                    let retryable = status == reqwest::StatusCode::TOO_MANY_REQUESTS
+                        || status.is_server_error();
+                    if !retryable {
+                        return Ok(resp);
+                    }
+                    last = format!("HTTP {status}");
+                }
+                Err(e) if e.is_timeout() || e.is_connect() || e.is_request() => {
+                    last = e.to_string();
+                }
+                Err(e) => return Err(e.into()),
+            }
+            if attempt < MAX_ATTEMPTS {
+                tokio::time::sleep(delay).await;
+                delay *= 2;
+            }
+        }
+        Err(VaultError::Resolution {
+            name: "registry".into(),
+            reason: format!("request failed after {MAX_ATTEMPTS} attempts: {last}"),
+        })
+    }
+
     async fn fetch_packument(&self, name: &str) -> Result<Arc<Packument>> {
         // Scoped packages (`@scope/name`) must keep the `/` un-encoded.
         let url = format!("{}/{}", self.base_url, name);
@@ -143,7 +186,7 @@ impl Registry {
         }
 
         tracing::debug!("GET {url}");
-        let resp = req.send().await?;
+        let resp = self.send_with_retry(req).await?;
 
         if resp.status() == reqwest::StatusCode::NOT_MODIFIED {
             if let Some(bp) = &body_path {
@@ -183,7 +226,7 @@ impl Registry {
         body_path: &Option<PathBuf>,
         etag_path: &Option<PathBuf>,
     ) -> Result<Arc<Packument>> {
-        let resp = self.client.get(url).send().await?;
+        let resp = self.send_with_retry(self.client.get(url)).await?;
         if !resp.status().is_success() {
             return Err(VaultError::Resolution {
                 name: name.to_string(),
@@ -205,7 +248,7 @@ impl Registry {
     /// caller can pipe the body to disk while hashing (no full in-memory copy).
     pub async fn tarball_response(&self, url: &str) -> Result<reqwest::Response> {
         tracing::debug!("GET tarball {url}");
-        let resp = self.client.get(url).send().await?;
+        let resp = self.send_with_retry(self.client.get(url)).await?;
         if !resp.status().is_success() {
             return Err(VaultError::Resolution {
                 name: url.to_string(),

@@ -1,6 +1,6 @@
 {
   "name": "vaultpm",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "A secure, pnpm-style Node.js package manager written in Rust that blocks supply-chain attacks before install. Installs the `vault` and `vt` commands.",
   "keywords": [
     "package-manager",
@@ -33,10 +33,10 @@
   },
   "//": "No postinstall script by design — the platform binary ships via optionalDependencies. A security tool should not run install scripts to install itself.",
   "optionalDependencies": {
-    "@vaultpm/linux-x64": "0.1.3",
-    "@vaultpm/linux-arm64": "0.1.3",
-    "@vaultpm/darwin-x64": "0.1.3",
-    "@vaultpm/darwin-arm64": "0.1.3",
-    "@vaultpm/win32-x64": "0.1.3"
+    "@vaultpm/linux-x64": "0.1.4",
+    "@vaultpm/linux-arm64": "0.1.4",
+    "@vaultpm/darwin-x64": "0.1.4",
+    "@vaultpm/darwin-arm64": "0.1.4",
+    "@vaultpm/win32-x64": "0.1.4"
   }
 }

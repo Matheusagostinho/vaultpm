@@ -20,7 +20,7 @@ and CI.
 
 | Priority | Item | Impact | Effort | Notes |
 |---|---|:--:|:--:|---|
-| 🔜 P0 | **`--frozen-lockfile` / lockfile-driven install** — if `vault.lock` matches `package.json`, skip resolution entirely and go straight to fetch+link | 🔥 | ◐ | Near-instant cold installs in CI (the dominant CI case). Security unchanged: locked entries already carry integrity + audit verdict. |
+| ✅ P0 | **`--frozen-lockfile` / lockfile-driven install** — a consistent `vault.lock` skips network resolution; `--frozen-lockfile` errors on drift and never rewrites the lock | 🔥 | ◐ | **Done.** Lockfile stores the graph + lifecycle scripts so audit still runs offline. |
 | 🔜 P0 | **Abbreviated packuments** (`Accept: application/vnd.npm.install-v1+json`) for resolution; fetch the full document only for the few direct deps that need maintainer/recency data | 🔥 | ◐ | Much smaller metadata payloads → faster cold resolve + less bandwidth. |
 | 🔜 P1 | **Metadata freshness window** — skip ETag revalidation when a cached packument is younger than N seconds (configurable; `--offline`/`--prefer-offline`) | ◐ | · | Cuts N revalidation round-trips on warm/repeat installs. Correctness preserved via the existing ETag path when stale. |
 | ⏳ P1 | **Pipeline phases per package** — start fetching a package the moment *it* passes audit, instead of waiting for the whole tree to finish auditing | ◐ | ◐ | Overlaps audit and download. Keeps per-package "audit-before-fetch" ordering. |
@@ -33,7 +33,7 @@ Make Vault behave correctly under failure, concurrency and weird environments.
 
 | Priority | Item | Impact | Effort | Notes |
 |---|---|:--:|:--:|---|
-| 🔜 P0 | **Download retries with exponential backoff** + handle registry `429`/`5xx` and partial transfers | 🔥 | ◐ | Flaky networks shouldn't fail a whole install. |
+| ✅ P0 | **Download retries with exponential backoff** for connection/timeout errors, `429` and `5xx` | 🔥 | ◐ | **Done** for packument + tarball requests. |
 | 🔜 P0 | **Store lock file** — guard `~/.vault/store` against two concurrent `vault` processes corrupting it | 🔥 | ◐ | Advisory lock + atomic writes (CAS already uses unique-temp + rename). |
 | 🔜 P1 | **`vault store verify` / self-heal** — detect and re-fetch CAS objects whose content no longer matches their hash | ◐ | ◐ | Recovers from disk corruption; deepens trust in the store. |
 | 🔜 P1 | **Windows parity** — junctions instead of symlinks, `.cmd`/`.ps1` bin shims, reserved-name + long-path handling, `install.ps1` | 🔥 | 🔥 | Binaries already build on Windows; the linker/sandbox paths need work. |

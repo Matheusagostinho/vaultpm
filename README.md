@@ -153,7 +153,8 @@ vt audit
 
 # run a package.json script inside the Landlock sandbox:
 vault run build
-vault install --strict     # block on ANY advisory, not just critical
+vault install --strict           # block on ANY advisory, not just critical
+vault install --frozen-lockfile  # CI: require an up-to-date vault.lock, never change it
 
 # housekeeping:
 vault store prune          # GC unreferenced files from the global store

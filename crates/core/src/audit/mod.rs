@@ -126,10 +126,27 @@ pub async fn audit_package(
             .filter(|a| a.is_critical())
             .map(|a| a.id.clone())
             .collect();
+        // Recommend the lowest upgrade that clears the critical/high advisories.
+        let fix = report
+            .advisories
+            .iter()
+            .filter(|a| a.is_critical())
+            .filter_map(|a| a.fixed.clone())
+            .max_by(|a, b| {
+                use node_semver::Version;
+                match (Version::parse(a), Version::parse(b)) {
+                    (Ok(x), Ok(y)) => x.cmp(&y),
+                    _ => std::cmp::Ordering::Equal,
+                }
+            });
+        let hint = match fix {
+            Some(v) => format!(" — fix: upgrade {} to >= {v}", meta.name),
+            None => String::new(),
+        };
         return Err(VaultError::SecurityBlock {
             name: meta.name.clone(),
             version: meta.version.clone(),
-            reason: format!("critical/high CVE(s): {}", ids.join(", ")),
+            reason: format!("critical/high CVE(s): {}{hint}", ids.join(", ")),
         });
     }
 

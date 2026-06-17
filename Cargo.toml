@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/cli", "crates/core", "crates/sandbox"]
 
 [workspace.package]
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 rust-version = "1.85"
 license = "MIT"
@@ -13,7 +13,7 @@ authors = ["Matheus Agostinho"]
 description = "A secure, pnpm-style Node.js package manager written in Rust that actively blocks supply-chain attacks before install."
 
 [workspace.dependencies]
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "process", "io-util", "sync"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "process", "io-util", "sync", "time"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

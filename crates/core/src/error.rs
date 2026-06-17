@@ -35,6 +35,9 @@ pub enum VaultError {
         reason: String,
     },
 
+    #[error("install blocked by security policy: {0}")]
+    Blocked(String),
+
     #[error("config error: {0}")]
     Config(String),
 

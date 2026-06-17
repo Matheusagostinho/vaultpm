@@ -39,6 +39,28 @@ struct OsvVuln {
     severity: Vec<OsvSeverity>,
     #[serde(default)]
     database_specific: Option<DatabaseSpecific>,
+    #[serde(default)]
+    affected: Vec<OsvAffected>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct OsvAffected {
+    #[serde(default)]
+    ranges: Vec<OsvRange>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct OsvRange {
+    #[serde(default)]
+    events: Vec<OsvEvent>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct OsvEvent {
+    #[serde(default)]
+    introduced: Option<String>,
+    #[serde(default)]
+    fixed: Option<String>,
 }
 
 #[derive(Deserialize, Clone)]
@@ -61,6 +83,10 @@ pub struct Advisory {
     pub summary: String,
     /// One of: critical / high / moderate / low / unknown.
     pub severity: String,
+    /// The lowest version that fixes this advisory for the installed version's
+    /// release line, if OSV provides one (the recommended upgrade target).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fixed: Option<String>,
 }
 
 impl Advisory {
@@ -93,7 +119,11 @@ pub async fn query(client: &reqwest::Client, name: &str, version: &str) -> Resul
         return Ok(vec![]);
     }
     let parsed: OsvResponse = resp.json().await.unwrap_or_default();
-    Ok(parsed.vulns.into_iter().map(normalize).collect())
+    Ok(parsed
+        .vulns
+        .into_iter()
+        .map(|v| normalize(v, version))
+        .collect())
 }
 
 #[derive(Serialize)]
@@ -173,13 +203,49 @@ async fn query_batch_chunk(
     results
 }
 
-fn normalize(v: OsvVuln) -> Advisory {
+fn normalize(v: OsvVuln, current_version: &str) -> Advisory {
     let severity = classify_severity(&v);
+    let fixed = recommended_fix(&v, current_version);
     Advisory {
         id: v.id,
         summary: v.summary.unwrap_or_else(|| "(no summary provided)".into()),
         severity,
+        fixed,
     }
+}
+
+/// The lowest "fixed" version on the release line that contains
+/// `current_version` — i.e. the minimal upgrade that resolves the advisory.
+fn recommended_fix(v: &OsvVuln, current_version: &str) -> Option<String> {
+    use node_semver::Version;
+    let current = Version::parse(current_version).ok()?;
+    let mut best: Option<Version> = None;
+    for affected in &v.affected {
+        for range in &affected.ranges {
+            // Track the most recent `introduced` as we walk the event list.
+            let mut introduced = Version::parse("0.0.0").ok();
+            for event in &range.events {
+                if let Some(i) = &event.introduced {
+                    introduced = if i == "0" {
+                        Version::parse("0.0.0").ok()
+                    } else {
+                        Version::parse(i).ok()
+                    };
+                }
+                if let Some(f) = &event.fixed {
+                    let Ok(fix) = Version::parse(f) else { continue };
+                    let in_line = introduced.as_ref().map(|iv| current >= *iv).unwrap_or(true);
+                    if in_line && current < fix {
+                        best = Some(match best {
+                            Some(b) if b <= fix => b,
+                            _ => fix,
+                        });
+                    }
+                }
+            }
+        }
+    }
+    best.map(|v| v.to_string())
 }
 
 /// Best-effort severity classification from OSV's heterogeneous fields.
@@ -235,6 +301,7 @@ mod tests {
             id: "GHSA-x".into(),
             summary: "".into(),
             severity: "critical".into(),
+            fixed: None,
         };
         assert!(a.is_critical());
     }

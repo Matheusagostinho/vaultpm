@@ -75,6 +75,43 @@ pub fn link_all(store: &Store, resolution: &Resolution, project_dir: &Path) -> R
     // 4. Link executables (`bin` fields) into the relevant `.bin` directories.
     link_bins(&virtual_store, &node_modules, resolution)?;
 
+    // 5. Emit npm's hidden lockfile marker so tools that walk up looking for a
+    //    lockfile (Vite's dep optimizer, etc.) anchor *here* instead of escaping
+    //    the project — which the sandbox would (correctly) deny.
+    write_hidden_lockfile(&node_modules, resolution)?;
+
+    Ok(())
+}
+
+/// Write a deterministic `node_modules/.package-lock.json`. Its presence stops
+/// dependency-cache tools from traversing above the project; its content is a
+/// stable hash key that changes only when the installed set changes.
+fn write_hidden_lockfile(node_modules: &Path, resolution: &Resolution) -> Result<()> {
+    let mut packages = serde_json::Map::new();
+    for pkg in resolution.packages.values() {
+        let mut entry = serde_json::Map::new();
+        entry.insert("version".into(), pkg.version.clone().into());
+        entry.insert("resolved".into(), pkg.meta.dist.tarball.clone().into());
+        if let Some(integrity) = &pkg.meta.dist.integrity {
+            entry.insert("integrity".into(), integrity.clone().into());
+        }
+        // Key by the isolated-store path so identical names at different
+        // versions never collide (deterministic via the sorted BTreeMap).
+        let key = format!(
+            "node_modules/.vault/{}/node_modules/{}",
+            sanitize(&pkg.id()),
+            pkg.name
+        );
+        packages.insert(key, serde_json::Value::Object(entry));
+    }
+    let doc = serde_json::json!({
+        "name": ".vault-managed",
+        "lockfileVersion": 3,
+        "requires": true,
+        "packages": packages,
+    });
+    let text = serde_json::to_string(&doc).map_err(crate::error::VaultError::from)?;
+    std::fs::write(node_modules.join(".package-lock.json"), text)?;
     Ok(())
 }
 

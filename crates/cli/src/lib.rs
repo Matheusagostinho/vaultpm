@@ -41,6 +41,9 @@ enum Command {
         /// Treat any advisory (not just critical) as a block.
         #[arg(long)]
         strict: bool,
+        /// Require an up-to-date vault.lock and don't modify it (CI mode).
+        #[arg(long)]
+        frozen_lockfile: bool,
     },
     /// Add one or more packages to dependencies and install.
     Add {
@@ -106,11 +109,13 @@ async fn run_async() -> ExitCode {
             production,
             force,
             strict,
+            frozen_lockfile,
         } => {
             let mut opts = InstallOptions::new(&project_dir);
             opts.include_dev = !production;
             opts.force = force;
             opts.strict = strict;
+            opts.frozen = frozen_lockfile;
             if packages.is_empty() {
                 finish(vault_core::install(&opts).await)
             } else {

@@ -41,6 +41,9 @@ pub struct InstallOptions {
     pub force: bool,
     /// When true, any advisory (not just critical) blocks the install.
     pub strict: bool,
+    /// When true, require an up-to-date `vault.lock` and never modify it
+    /// (`--frozen-lockfile`); error if it is missing or out of date.
+    pub frozen: bool,
 }
 
 impl InstallOptions {
@@ -50,6 +53,7 @@ impl InstallOptions {
             include_dev: true,
             force: false,
             strict: false,
+            frozen: false,
         }
     }
 }
@@ -80,8 +84,24 @@ pub async fn install(opts: &InstallOptions) -> Result<InstallSummary> {
         println!("{}  no dependencies to install", style("·").dim());
         return Ok(InstallSummary::default());
     }
-    eprintln!("{} resolving dependency graph…", style("⟳").cyan());
-    let resolution = resolver::resolve(&registry, &roots).await?;
+    // Fast path: a consistent vault.lock lets us skip network resolution.
+    let locked =
+        lockfile::Lockfile::load(&opts.project_dir).filter(|lock| lock.matches_manifest(&roots));
+    let (resolution, used_lockfile) = match locked {
+        Some(lock) => {
+            eprintln!("{} using vault.lock (lockfile-driven)", style("⟳").cyan());
+            (lock.to_resolution(), true)
+        }
+        None if opts.frozen => {
+            return Err(VaultError::Config(
+                "--frozen-lockfile: vault.lock is missing or out of date".into(),
+            ));
+        }
+        None => {
+            eprintln!("{} resolving dependency graph…", style("⟳").cyan());
+            (resolver::resolve(&registry, &roots).await?, false)
+        }
+    };
     let mut summary = InstallSummary {
         resolved: resolution.packages.len(),
         ..Default::default()
@@ -111,8 +131,13 @@ pub async fn install(opts: &InstallOptions) -> Result<InstallSummary> {
             Ok(report) => {
                 summary.advisories += report.advisories.len();
                 for adv in &report.advisories {
+                    let fix = adv
+                        .fixed
+                        .as_deref()
+                        .map(|v| format!(" — fix: upgrade to >= {v}"))
+                        .unwrap_or_default();
                     summary.warnings.push(format!(
-                        "{id}: {} [{}] {}",
+                        "{id}: {} [{}] {}{fix}",
                         style(&adv.id).red(),
                         adv.severity,
                         adv.summary
@@ -120,7 +145,7 @@ pub async fn install(opts: &InstallOptions) -> Result<InstallSummary> {
                 }
                 if !report.lifecycle_hooks.is_empty() {
                     summary.warnings.push(format!(
-                        "{id}: has lifecycle scripts ({}) — NOT executed (sandbox is phase 3)",
+                        "{id}: has lifecycle scripts ({}) — run them sandboxed with `vault run`",
                         report.lifecycle_hooks.join(", ")
                     ));
                 }
@@ -151,14 +176,10 @@ pub async fn install(opts: &InstallOptions) -> Result<InstallSummary> {
         for b in &summary.blocked {
             eprintln!("{} {}", style("✗ BLOCKED").red().bold(), b);
         }
-        return Err(VaultError::SecurityBlock {
-            name: "install".into(),
-            version: String::new(),
-            reason: format!(
-                "{} package(s) blocked by security policy (use --force to override)",
-                summary.blocked.len()
-            ),
-        });
+        return Err(VaultError::Blocked(format!(
+            "{} package(s) blocked (use --force to override)",
+            summary.blocked.len()
+        )));
     }
 
     // 4. Fetch + verify + extract into the store, concurrently.
@@ -169,9 +190,12 @@ pub async fn install(opts: &InstallOptions) -> Result<InstallSummary> {
     eprintln!("{} linking node_modules…", style("🔗").blue());
     linker::link_all(&store, &resolution, &opts.project_dir)?;
 
-    // 6. Write the lockfile.
-    let lock = lockfile::Lockfile::from_resolution(&resolution, &audit_reports, &cfg.audit.sources);
-    lock.save(&opts.project_dir)?;
+    // 6. Write the lockfile (unless we just installed *from* an up-to-date one).
+    if !used_lockfile {
+        let lock =
+            lockfile::Lockfile::from_resolution(&resolution, &audit_reports, &cfg.audit.sources);
+        lock.save(&opts.project_dir)?;
+    }
 
     Ok(summary)
 }
@@ -243,8 +267,13 @@ pub async fn audit_project(project_dir: &Path) -> Result<InstallSummary> {
             Ok(report) => {
                 summary.advisories += report.advisories.len();
                 for adv in &report.advisories {
+                    let fix = adv
+                        .fixed
+                        .as_deref()
+                        .map(|v| format!(" — fix: upgrade to >= {v}"))
+                        .unwrap_or_default();
                     summary.warnings.push(format!(
-                        "{id}: {} [{}] {}",
+                        "{id}: {} [{}] {}{fix}",
                         adv.id, adv.severity, adv.summary
                     ));
                 }

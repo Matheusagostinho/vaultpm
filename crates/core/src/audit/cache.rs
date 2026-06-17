@@ -73,6 +73,7 @@ mod tests {
             id: "GHSA-x".into(),
             summary: "s".into(),
             severity: "high".into(),
+            fixed: None,
         }];
         put(&store, "left-pad", "1.0.0", &adv);
         let got = get(&store, "left-pad", "1.0.0", 24).expect("fresh hit");
